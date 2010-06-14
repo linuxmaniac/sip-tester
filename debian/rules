@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+
+# pcapplay support appears broken at present :-(
+# DEB_MAKE_BUILD_TARGET    := pcapplay
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/makefile.mk
+include /usr/share/cdbs/1/rules/simple-patchsys.mk
+
+help2man:
+	/usr/bin/help2man -v '-v' -N -S 'Debian GNU/Linux' -o debian/sipp.1 sipp \
+		-n 'Session Initiation Protol (SIP) performance testing tool'

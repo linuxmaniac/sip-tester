@@ -1,0 +1,111 @@
+diff -Nur -x '*.orig' -x '*~' sip-tester-3.1//local.mk sip-tester-3.1.new//local.mk
+--- sip-tester-3.1//local.mk	2008-01-12 06:53:48.000000000 +1100
++++ sip-tester-3.1.new//local.mk	2010-06-14 13:30:21.000000000 +1000
+@@ -2,3 +2,7 @@
+ #  EXTRACPPFLAGS=-DHAVE_GSL -I`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/include
+ #  EXTRACFLAGS=-DHAVE_GSL -I`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/include
+ #  EXTRALIBS=-L`if test -f /usr/local/lib/libgsl.so; then echo /usr/local; else echo ./ext; fi;`/lib -lgsl -lgslcblas
++EXTRACPPFLAGS=-DHAVE_GSL `pkg-config --include gsl`
++EXTRACFLAGS=-DHAVE_GSL `pkg-config --include gsl`
++EXTRALIBS=`pkg-config --libs gsl`
++
+diff -Nur -x '*.orig' -x '*~' sip-tester-3.1//scenario.cpp sip-tester-3.1.new//scenario.cpp
+--- sip-tester-3.1//scenario.cpp	2008-03-29 07:13:47.000000000 +1100
++++ sip-tester-3.1.new//scenario.cpp	2010-06-14 13:31:58.000000000 +1000
+@@ -28,11 +28,9 @@
+ 
+ #include <stdlib.h>
+ #include "sipp.hpp"
+-#ifdef HAVE_GSL
+ #include <gsl/gsl_rng.h>
+ #include <gsl/gsl_randist.h>
+ #include <gsl/gsl_cdf.h>
+-#endif
+ 
+ /************************ Class Constructor *************************/
+ 
+@@ -1081,7 +1079,6 @@
+     double min = xp_get_double("min", "Uniform distribution");
+     double max = xp_get_double("max", "Uniform distribution");
+     distribution = new CUniform(min, max);
+-#ifdef HAVE_GSL
+   } else if (!strcmp(distname, "normal")) {
+     double mean = xp_get_double("mean", "Normal distribution");
+     double stdev = xp_get_double("stdev", "Normal distribution");
+@@ -1114,16 +1111,6 @@
+     double n = xp_get_double("n", "Negative Binomial distribution");
+     double p = xp_get_double("p", "Negative Binomial distribution");
+     distribution = new CNegBin(n, p);
+-#else
+-  } else if (!strcmp(distname, "normal")
+-      || !strcmp(distname, "lognormal")
+-      || !strcmp(distname, "exponential")
+-      || !strcmp(distname, "pareto")
+-      || !strcmp(distname, "gamma")
+-      || !strcmp(distname, "negbin")
+-      || !strcmp(distname, "weibull")) {
+-    ERROR("The distribution '%s' is only available with GSL.", distname);
+-#endif
+   } else {
+     ERROR("Unknown distribution: %s\n", ptr);
+   }
+diff -Nur -x '*.orig' -x '*~' sip-tester-3.1//stat.cpp sip-tester-3.1.new//stat.cpp
+--- sip-tester-3.1//stat.cpp	2008-03-28 01:56:58.000000000 +1100
++++ sip-tester-3.1.new//stat.cpp	2010-06-14 13:32:45.000000000 +1000
+@@ -30,11 +30,9 @@
+ #include "sipp.hpp"
+ #include "scenario.hpp"
+ #include "screen.hpp"
+-#ifdef HAVE_GSL
+ #include <gsl/gsl_rng.h>
+ #include <gsl/gsl_randist.h>
+ #include <gsl/gsl_cdf.h>
+-#endif
+ 
+ /*
+ ** Local definitions (macros)
+@@ -1673,7 +1671,6 @@
+   return min + (max * percentile);
+ }
+ 
+-#ifdef HAVE_GSL
+ gsl_rng *gsl_init() {
+   static gsl_rng *rng = NULL;
+ 
+@@ -1912,6 +1909,5 @@
+ double CNegBin::cdfInv(double percentile) {
+   return 0;
+ }
+-#endif
+ 
+ 
+diff -Nur -x '*.orig' -x '*~' sip-tester-3.1//stat.hpp sip-tester-3.1.new//stat.hpp
+--- sip-tester-3.1//stat.hpp	2008-04-11 22:26:37.000000000 +1000
++++ sip-tester-3.1.new//stat.hpp	2010-06-14 13:33:06.000000000 +1000
+@@ -41,11 +41,9 @@
+ #include <fstream>
+ #include <stdio.h>
+ 
+-#ifdef HAVE_GSL
+ #include <gsl/gsl_rng.h>
+ #include <gsl/gsl_randist.h>
+ #include <gsl/gsl_cdf.h>
+-#endif
+ 
+ /* MAX_RTD_INFO_LENGTH defines the number of RTD begin and end points a single
+  * call can have.  If you need more than five, you can increase this number,
+@@ -615,7 +613,6 @@
+ 	double min, max;
+ };
+ 
+-#ifdef HAVE_GSL
+ /* Normal distribution. */
+ class CNormal : public CSample {
+ public:
+@@ -717,6 +714,5 @@
+ 	double p, n;
+ 	gsl_rng *rng;
+ };
+-#endif
+ 
+ #endif // __STAT_H__

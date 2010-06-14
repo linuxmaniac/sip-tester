@@ -1,0 +1,13 @@
+
+--- sip-tester-2.0.1.orig/sipp.hpp
++++ sip-tester-2.0.1/sipp.hpp
+@@ -443,7 +443,7 @@
+ void remove_from_pollfiles(int sock);
+ int pollset_add(call * p_call, int socket);
+ 
+-#if defined (__hpux) || defined (__alpha) && !defined (__FreeBSD__)
++#if defined (__hpux) || defined (__digital__) && defined(__unix__)
+ #define sipp_socklen_t  int
+ #else
+ #define sipp_socklen_t  socklen_t
+
