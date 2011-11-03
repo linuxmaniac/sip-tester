@@ -29,10 +29,7 @@
 #define DEFAULT_FILE_NAME (char*)"dumpFile"
 #define DEFAULT_EXTENSION (char*)".csv"
 
-#define MAX_REPARTITION_HEADER_LENGTH 1024
-#define MAX_REPARTITION_INFO_LENGTH   1024
 #define MAX_CHAR_BUFFER_SIZE          1024
-#define MAX_COUNTER		      5
 
 #include <ctime> 
 #include <sys/time.h> 
@@ -47,11 +44,7 @@
 #include <gsl/gsl_cdf.h>
 #endif
 
-/* MAX_RTD_INFO_LENGTH defines the number of RTD begin and end points a single
- * call can have.  If you need more than five, you can increase this number,
- * but you also need to insert entries into the E_CounterName enum in stat.hpp.
- */
-#define MAX_RTD_INFO_LENGTH 5
+#include "variables.hpp"
 
 using namespace std;
 
@@ -98,6 +91,7 @@ public:
     E_CREATE_INCOMING_CALL,
     E_CALL_FAILED, 
     E_CALL_SUCCESSFULLY_ENDED,
+    E_RESET_C_COUNTERS,
     E_RESET_PD_COUNTERS,
     E_RESET_PL_COUNTERS,
     E_ADD_CALL_DURATION,
@@ -110,12 +104,17 @@ public:
     E_FAILED_CALL_REJECTED,
     E_FAILED_CMD_NOT_SENT,
     E_FAILED_REGEXP_DOESNT_MATCH,
+    E_FAILED_REGEXP_SHOULDNT_MATCH,
     E_FAILED_REGEXP_HDR_NOT_FOUND,
     E_FAILED_OUTBOUND_CONGESTION,
     E_FAILED_TIMEOUT_ON_RECV,
     E_FAILED_TIMEOUT_ON_SEND,
     E_OUT_OF_CALL_MSGS,
+    E_WATCHDOG_MAJOR,
+    E_WATCHDOG_MINOR,
     E_DEAD_CALL_MSGS,
+    E_FATAL_ERRORS,
+    E_WARNING,
     E_RETRANSMISSION,
     E_AUTO_ANSWERED,
     E_ADD_GENERIC_COUNTER
@@ -137,21 +136,6 @@ public:
   CPT_C_NbOfCallUsedForAverageCallLength,
   CPT_C_AverageCallLength_Sum,
   CPT_C_AverageCallLength_Squares,
-  CPT_C_NbOfCallUsedForAverageResponseTime,
-  CPT_C_NbOfCallUsedForAverageResponseTime_2,
-  CPT_C_NbOfCallUsedForAverageResponseTime_3,
-  CPT_C_NbOfCallUsedForAverageResponseTime_4,
-  CPT_C_NbOfCallUsedForAverageResponseTime_5, // This must match or exceed MAX_RTD_INFO
-  CPT_C_AverageResponseTime_Sum,
-  CPT_C_AverageResponseTime_Sum_2,
-  CPT_C_AverageResponseTime_Sum_3,
-  CPT_C_AverageResponseTime_Sum_4,
-  CPT_C_AverageResponseTime_Sum_5, // This must match or exceed MAX_RTD_INFO
-  CPT_C_AverageResponseTime_Squares,
-  CPT_C_AverageResponseTime_Squares_2,
-  CPT_C_AverageResponseTime_Squares_3,
-  CPT_C_AverageResponseTime_Squares_4,
-  CPT_C_AverageResponseTime_Squares_5,
   CPT_C_FailedCallCannotSendMessage,
   CPT_C_FailedCallMaxUdpRetrans,
   CPT_C_FailedCallTcpConnect,
@@ -160,15 +144,11 @@ public:
   CPT_C_FailedCallCallRejected,
   CPT_C_FailedCallCmdNotSent,
   CPT_C_FailedCallRegexpDoesntMatch,
+  CPT_C_FailedCallRegexpShouldntMatch,
   CPT_C_FailedCallRegexpHdrNotFound,
   CPT_C_FailedOutboundCongestion,
   CPT_C_FailedTimeoutOnRecv,
   CPT_C_FailedTimeoutOnSend,
-  CPT_C_Generic,
-  CPT_C_Generic_2,
-  CPT_C_Generic_3,
-  CPT_C_Generic_4,
-  CPT_C_Generic_5, // This must match or exceed MAX_COUNTER
   CPT_C_Retransmissions,
 
   // Periodic Display counter
@@ -204,15 +184,11 @@ public:
   CPT_PD_FailedCallCallRejected,
   CPT_PD_FailedCallCmdNotSent,
   CPT_PD_FailedCallRegexpDoesntMatch,
+  CPT_PD_FailedCallRegexpShouldntMatch,
   CPT_PD_FailedCallRegexpHdrNotFound,
   CPT_PD_FailedOutboundCongestion,
   CPT_PD_FailedTimeoutOnRecv,
   CPT_PD_FailedTimeoutOnSend,
-  CPT_PD_Generic,
-  CPT_PD_Generic_2,
-  CPT_PD_Generic_3,
-  CPT_PD_Generic_4,
-  CPT_PD_Generic_5, // This must match or exceed MAX_COUNTER
   CPT_PD_Retransmissions,
 
   // Periodic logging counter
@@ -249,15 +225,11 @@ public:
   CPT_PL_FailedCallCallRejected,
   CPT_PL_FailedCallCmdNotSent,
   CPT_PL_FailedCallRegexpDoesntMatch,
+  CPT_PL_FailedCallRegexpShouldntMatch,
   CPT_PL_FailedCallRegexpHdrNotFound,
   CPT_PL_FailedOutboundCongestion,
   CPT_PL_FailedTimeoutOnRecv,
   CPT_PL_FailedTimeoutOnSend,
-  CPT_PL_Generic,
-  CPT_PL_Generic_2,
-  CPT_PL_Generic_3,
-  CPT_PL_Generic_4,
-  CPT_PL_Generic_5,
   CPT_PL_Retransmissions,
 
   E_NB_COUNTER,
@@ -266,15 +238,27 @@ public:
   // Cumulative counters
   CPT_G_C_OutOfCallMsgs,
   CPT_G_C_DeadCallMsgs,
+  CPT_G_C_FatalErrors,
+  CPT_G_C_Warnings,
+  CPT_G_C_WatchdogMajor,
+  CPT_G_C_WatchdogMinor,
   CPT_G_C_AutoAnswered,
   // Periodic Display counter
   CPT_G_PD_OutOfCallMsgs,
   CPT_G_PD_DeadCallMsgs,
+  CPT_G_PD_FatalErrors,
+  CPT_G_PD_Warnings,
+  CPT_G_PD_WatchdogMajor,
+  CPT_G_PD_WatchdogMinor,
   CPT_G_PD_AutoAnswered, // must be last (RESET_PD_COUNTER)
 
   // Periodic logging counter
   CPT_G_PL_OutOfCallMsgs,
   CPT_G_PL_DeadCallMsgs,
+  CPT_G_PL_FatalErrors,
+  CPT_G_PL_Warnings,
+  CPT_G_PL_WatchdogMajor,
+  CPT_G_PL_WatchdogMinor,
   CPT_G_PL_AutoAnswered, // must be last (RESET_PL_COUNTER)
 
   E_NB_G_COUNTER,
@@ -377,8 +361,7 @@ public:
   void displayData (FILE *f);
   void displayStat(FILE *f);
   void displayRepartition(FILE *f);
-  void displaySecondaryRepartition (FILE *f, int which);
-
+  void displayRtdRepartition (FILE *f, int which);
 
   /**
    * Dump data periodically in the file M_FileName
@@ -428,12 +411,38 @@ public:
    */
   static char* msToHHMMSSmmm (unsigned long P_ms);
 
+  /* Get a counter ID by name. */
+  int findCounter(const char *counter, bool alloc);
+  int findRtd(const char *name, bool start);
+  void validateRtds();
+  int nRtds();
 
 private:
   unsigned long long       M_counters[E_NB_COUNTER];
   static unsigned long long M_G_counters[E_NB_G_COUNTER - E_NB_COUNTER];
 
-  T_dynamicalRepartition*  M_ResponseTimeRepartition[MAX_RTD_INFO_LENGTH];
+#define GENERIC_C 0
+#define GENERIC_PD 1
+#define GENERIC_PL 2
+#define GENERIC_TYPES 3
+  unsigned long long	   *M_genericCounters;
+
+  str_int_map		   M_genericMap;
+  int_str_map		   M_revGenericMap;
+  int_str_map		   M_genericDisplay;
+
+  str_int_map		   rtd_started;
+  str_int_map		   rtd_stopped;
+
+#define RTD_COUNT 0
+#define RTD_SUM 1
+#define RTD_SUMSQ 2
+#define RTD_TYPES 3
+  unsigned long long	   *M_rtdInfo;
+  str_int_map		   M_rtdMap;
+  int_str_map		   M_revRtdMap;
+
+  T_dynamicalRepartition** M_ResponseTimeRepartition;
   T_dynamicalRepartition*  M_CallLengthRepartition;
   int                      M_SizeOfResponseTimeRepartition;
   int                      M_SizeOfCallLengthRepartition;
@@ -553,6 +562,10 @@ private:
    */
   double computeMean(E_CounterName P_SumCounter,
                              E_CounterName P_NbOfCallUsed);
+
+  double computeRtdMean(int which, int type);
+  double computeRtdStdev(int which, int type);
+
   /**
    * Effective C++
    *
@@ -577,6 +590,7 @@ public:
 	virtual int textDescr(char *s, int len) = 0;
 	virtual int timeDescr(char *s, int len) = 0;
 	virtual double cdfInv(double percentile) = 0;
+	virtual ~CSample();
 private:
 };
 

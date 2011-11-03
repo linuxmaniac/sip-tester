@@ -1,7 +1,7 @@
 
---- sip-tester-2.0.1.orig/Makefile
-+++ sip-tester-2.0.1/Makefile
-@@ -82,7 +82,7 @@
+--- a/Makefile
++++ b/Makefile
+@@ -85,7 +85,7 @@ CPP_Darwin=g++  
  CPP=$(CPP_$(SYSTEM))
  
  #Model specific flags
@@ -10,4 +10,3 @@
  MFLAGS_9000/800=+DAportable
  MFLAGS_9000/785=+DAportable
  MFLAGS_i686=
-

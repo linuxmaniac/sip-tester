@@ -33,6 +33,7 @@
  *           Ben Evans from Open Cloud
  *           Marc Van Diest from Belgacom
  *	     Stefan Esser
+ *           Andy Aicken
  */
 
 #include "sipp.hpp"
@@ -42,6 +43,9 @@ struct KeywordMap {
 	char *keyword;
 	MessageCompType type;
 };
+
+typedef std::map<std::string, customKeyword> kw_map;
+kw_map keyword_map;
 
 /* These keywords take no parameters. */
 struct KeywordMap SimpleKeywords[] = {
@@ -60,6 +64,7 @@ struct KeywordMap SimpleKeywords[] = {
   {"media_port", E_Message_Media_Port },
   {"media_ip_type", E_Message_Media_IP_Type },
   {"call_number", E_Message_Call_Number },
+  {"dynamic_id", E_Message_DynamicId }, // wrapping global counter
   {"call_id", E_Message_Call_ID },
   {"cseq", E_Message_CSEQ },
   {"pid", E_Message_PID },
@@ -69,7 +74,6 @@ struct KeywordMap SimpleKeywords[] = {
   {"next_url", E_Message_Next_Url },
   {"len", E_Message_Len },
   {"peer_tag_param", E_Message_Peer_Tag_Param },
-  {"last_peer_tag_param", E_Message_Last_Peer_Tag_Param },
   {"last_Request_URI", E_Message_Last_Request_URI },
   {"last_cseq_number", E_Message_Last_CSeq_Number },
   {"last_message", E_Message_Last_Message },
@@ -79,18 +83,17 @@ struct KeywordMap SimpleKeywords[] = {
   {"users", E_Message_Users },
   {"userid", E_Message_UserID },
   {"timestamp", E_Message_Timestamp },
+  {"sipp_version", E_Message_SippVersion },
 };
 
 #define KEYWORD_SIZE 256
 
 SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sanity) {
-  char *osrc = src;
+    char *osrc = src;
     char * literal;
+    int    literalLen;
     char * dest;
     char * key;
-    char * length_marker = NULL;
-    int    offset = 0;
-    int    len_offset = 0;
     char   current_line[MAX_HEADER_LEN];
     char * line_mark = NULL;
     char * tsrc;
@@ -99,6 +102,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
     this->msg_scenario = msg_scenario;
     
     dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
+    literalLen = 0;
  
     current_line[0] = '\0';
     *dest = 0;
@@ -107,8 +111,11 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
       if (current_line[0] == '\0') {
         line_mark = strchr(src, '\n');
         if (line_mark) {
-          memcpy(current_line, src, line_mark - src);
-          current_line[line_mark-src] = '\0';
+          int header_len =  line_mark - src;
+          if (header_len > MAX_HEADER_LEN-1)
+              header_len = MAX_HEADER_LEN-1;
+          memcpy(current_line, src, header_len);
+          current_line[header_len] = '\0';
         }
       }
 
@@ -134,22 +141,29 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
         *dest++ = *src++;
       } else {
 	/* We have found a keyword, store the literal that we have been generating. */
-	*dest = '\0';
-	literal = (char *)realloc(literal, strlen(literal) + 1);
-	if (!literal) { ERROR("Out of memory!"); }
+        literalLen = dest - literal;
+	if (literalLen) {
+	  *dest = '\0';
+	  literal = (char *)realloc(literal, literalLen + 1);
+	  if (!literal) { ERROR("Out of memory!"); }
 
-	MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
-	if (!newcomp) { ERROR("Out of memory!"); }
+	  MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
+	  if (!newcomp) { ERROR("Out of memory!"); }
 
-	newcomp->type = E_Message_Literal;
-	newcomp->literal = literal;
-	messageComponents.push_back(newcomp);
+	  newcomp->type = E_Message_Literal;
+	  newcomp->literal = literal;
+	  newcomp->literalLen = literalLen; // length without the terminator 
+	  messageComponents.push_back(newcomp);
+	} else {
+	  free(literal);
+	}
 
 	dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
+	literalLen = 0;
 	*dest = '\0';
 
 	/* Now lets determine which keyword we have. */
-	newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
+	MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
 	if (!newcomp) { ERROR("Out of memory!"); }
 
         char keyword [KEYWORD_SIZE+1];
@@ -161,6 +175,9 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 			do {
 				tsrc++;
 			} while(*tsrc && *tsrc != '\"');
+			if (!*tsrc) {
+				break;
+			}
 		}
 		if (*tsrc == '[')
 			break;
@@ -206,8 +223,26 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	    }
 	}
 
+	char *spc = NULL;
+	char ospc;
+	if ((spc = strchr(keyword, ' '))) {
+		ospc = *spc;
+		*spc = '\0';
+	}
+	kw_map::iterator it = keyword_map.find(keyword);
+	if (spc) {
+	  *spc = ospc;
+	}
+
+	if (it != keyword_map.end()) {
+	  newcomp->type = E_Message_Custom;
+	  newcomp->comp_param.fxn = it->second;
+	  messageComponents.push_back(newcomp);
+	  continue;
+	}
+
 	bool simple_keyword = false;
-	for (int i = 0; i < sizeof(SimpleKeywords)/sizeof(SimpleKeywords[0]); i++) {
+	for (unsigned int i = 0; i < sizeof(SimpleKeywords)/sizeof(SimpleKeywords[0]); i++) {
 	  if (!strcmp(keyword, SimpleKeywords[i].keyword)) {
 		newcomp->type = SimpleKeywords[i].type;
 		simple_keyword = true;
@@ -246,6 +281,17 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	    /* Turn this into a new message component. */
 	    newcomp->comp_param.field_param.line = new SendingMessage(msg_scenario, line, true);
 	  }
+        } else if(!strncmp(keyword, "file", strlen("file"))) {
+	  newcomp->type = E_Message_File;
+
+	  /* Parse out the interesting things like file and number. */
+	  char fileName[KEYWORD_SIZE];
+	  getKeywordParam(keyword, "name=", fileName);
+	  if (fileName[0] == '\0') {
+	    ERROR("No name specified for 'file' keyword!\n");
+	  }
+	  /* Turn this into a new message component. */
+	  newcomp->comp_param.filename = new SendingMessage(msg_scenario, fileName, true);
         } else if(*keyword == '$') {
 	  newcomp->type = E_Message_Variable;
 	  if (!msg_scenario) {
@@ -264,6 +310,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 	  getKeywordParam(keyword, "variable=", varName);
 
 	  newcomp->literal = strdup(filltext);
+	  newcomp->literalLen = strlen(newcomp->literal);
 	  if (!msg_scenario) {
 	    ERROR("SendingMessage with variable usage outside of scenario!");
 	  }
@@ -271,6 +318,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
      } else if(!strncmp(keyword, "last_", strlen("last_"))) {
        newcomp->type = E_Message_Last_Header;
        newcomp->literal = strdup(keyword + strlen("last_"));
+       newcomp->literalLen = strlen(newcomp->literal);
      } else if(!strncmp(keyword, "authentication", strlen("authentication"))) {
        parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
      }
@@ -297,6 +345,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
             if(!strcmp(keyword, msg1)) {
 	      newcomp->type = E_Message_Literal;
 	      newcomp->literal = strdup(msg2);
+	      newcomp->literalLen = strlen(newcomp->literal);
               break;
             }
             ++i;
@@ -312,7 +361,8 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
     }
     if (literal[0]) {
       *dest++ = '\0';
-      literal = (char *)realloc(literal, strlen(literal) + 1);
+      literalLen = dest - literal;
+      literal = (char *)realloc(literal, literalLen);
       if (!literal) { ERROR("Out of memory!"); } 
 
       MessageComponent *newcomp = (MessageComponent *)calloc(1, sizeof(MessageComponent));
@@ -320,6 +370,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *src, bool skip_sani
 
       newcomp->type = E_Message_Literal;
       newcomp->literal = literal;
+      newcomp->literalLen = literalLen-1;
       messageComponents.push_back(newcomp);
     } else {
       free(literal);
@@ -436,7 +487,7 @@ void SendingMessage::getKeywordParam(char * src, char * param, char * output)
 
   len = 0;
   key = NULL;
-  if(tmp = strstr(src, param)) {
+  if ((tmp = strstr(src, param))) {
     tmp += strlen(param);
     key = tmp;
     if ((*key == '0') && (*(key+1) == 'x')) {
@@ -531,4 +582,13 @@ int SendingMessage::numComponents() {
 }
 struct MessageComponent *SendingMessage::getComponent(int i) {
   return messageComponents[i];
+}
+
+/* This is very simplistic and does not yet allow any arguments, but it is a start. */
+int registerKeyword(char *keyword, customKeyword fxn) {
+	if (keyword_map.find(keyword) != keyword_map.end()) {
+		ERROR("Can not register keyword '%s', already registered!\n", keyword);
+	}
+	keyword_map[keyword] = fxn;
+	return 0;
 }

@@ -1,3 +1,19 @@
+sip-tester (1:3.2-1) unstable; urgency=low
+
+  [ Paul Belanger ]
+  * New Upstream Release (Closes: #623915).
+  * Switch to dpkg-source 3.0 (quilt) format
+  * Building with PCAP play.
+  * Switch back to Debhelper.
+  * debian/patches/spelling-error-in-binary: Fix lintian warning
+
+  [ Mark Purcell ]
+  * Drop pabs from Uploaders: at his request
+  * fix debhelper-overrides-need-versioned-build-depends
+  * fix description-synopsis-starts-with-article
+
+ -- Mark Purcell <msp@debian.org>  Thu, 03 Nov 2011 21:56:17 +1100
+
 sip-tester (1:3.1-3) unstable; urgency=low
 
   * Fix "pkg-config: command not found" Added Build-Depends: (Closes: #585904)

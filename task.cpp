@@ -110,6 +110,8 @@ task_list *timewheel::task2list(task *task) {
   unsigned int wake_sigbits = wake;
   unsigned int base_sigbits = wheel_base;
 
+  assert(wheel_base <= clock_tick);
+
   if (wake == 0) {
     return &forever_list;
   }
@@ -188,6 +190,10 @@ int timewheel::expire_paused_tasks() {
 
 void timewheel::add_paused_task(task *task, bool increment) {
   task_list::iterator task_it;
+  if (task->wake() && task->wake() < wheel_base) {
+    task->add_to_runqueue();
+    return;
+  }
   task_list *list = task2list(task);
   task_it = list->insert(list->end(), task);
   task->pauselist = list;
@@ -220,8 +226,18 @@ void task::setRunning() {
 }
 
 void task::setPaused() {
+  if (running) {
     if (!remove_from_runqueue()) {
-      ERROR("Tried to remove a running call that wasn't running!\n");
+      WARNING("Tried to remove a running call that wasn't running!\n");
+      assert(0);
     }
-    add_to_paused_tasks(true);
+  } else {
+    paused_tasks.remove_paused_task(this);
+  }
+  assert(running == false);
+  add_to_paused_tasks(true);
+}
+
+void task::abort() {
+  delete this;
 }

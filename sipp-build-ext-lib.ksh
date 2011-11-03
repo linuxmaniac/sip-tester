@@ -53,7 +53,7 @@ echo "[Building external library]"
 #	kerror "no version file ${BUILD_VERSION_FILE} found"
 #fi
 
-BUILD_VERSION=3.1
+BUILD_VERSION=3.2
 EXT_VERSION=${BUILD_VERSION}
 
 if test -f ${EXTBUILD_CONF_FILE}

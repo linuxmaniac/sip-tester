@@ -39,6 +39,8 @@ bool CCallVariable::isSet()
       return(false);
   } else if (M_type == E_VT_BOOL) {
     return M_bool;
+  } else if (M_type == E_VT_DOUBLE) {
+    return M_double;
   }
   return (M_type != E_VT_UNDEFINED);
 }
@@ -333,13 +335,23 @@ int AllocVariableTable::find(const char *varName, bool allocate) {
 }
 
 char *AllocVariableTable::getName(int i) {
-  int thisLevel  = i & (1 << LEVEL_BITS);
+  int thisLevel  = i & ((1 << LEVEL_BITS) - 1);
   assert(thisLevel <= level);
   if (thisLevel == level) {
 	return variableRevMap[i];
   }
   assert(av_parent);
   return av_parent->getName(i);
+}
+
+void AllocVariableTable::dump() {
+  if (av_parent) {
+    av_parent->dump();
+  }
+  WARNING("%d level %d variables:", variableMap.size(), level);
+  for (str_int_map::iterator i = variableMap.begin(); i != variableMap.end(); i++) {
+	WARNING("%s", i->first.c_str());
+  }
 }
 
 void AllocVariableTable::validate() {

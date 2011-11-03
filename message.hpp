@@ -32,6 +32,7 @@
  *           Jan Andres from Freenet
  *           Ben Evans from Open Cloud
  *           Marc Van Diest from Belgacom
+ *           Andy Aicken
  */
 
 #ifndef __MESSAGE__
@@ -58,6 +59,7 @@ typedef enum {
   E_Message_Media_Port,
   E_Message_Media_IP_Type,
   E_Message_Call_Number,
+  E_Message_DynamicId,   // general usage, global, autoincrementing and wrapping counter
   E_Message_Call_ID,
   E_Message_CSEQ,
   E_Message_PID,
@@ -67,7 +69,6 @@ typedef enum {
   E_Message_Next_Url,
   E_Message_Len,
   E_Message_Peer_Tag_Param,
-  E_Message_Last_Peer_Tag_Param,
   E_Message_Routes,
   E_Message_Variable,
   E_Message_Fill,
@@ -82,6 +83,9 @@ typedef enum {
   E_Message_Users,
   E_Message_UserID,
   E_Message_Timestamp,
+  E_Message_SippVersion,
+  E_Message_File,
+  E_Message_Custom,
 } MessageCompType;
 
 class SendingMessage {
@@ -119,10 +123,17 @@ class SendingMessage {
     static void getKeywordParam(char * src, char * param, char * output);
 };
 
+/* Custom Keyword Function Type. */
+struct MessageComponent;
+class call;
+typedef int (*customKeyword)(call *, struct MessageComponent *, char *, int);
+/* Custom Keyword Registration Function. */
+int registerKeyword(char *keyword, customKeyword fxn);
 
 struct MessageComponent {
   MessageCompType type;
   char *literal;
+  int literalLen;
   int offset;
   int varId;
   union u {
@@ -140,6 +151,8 @@ struct MessageComponent {
       int field;
       SendingMessage *line;
     } field_param;
+    SendingMessage *filename;
+    customKeyword fxn;
   } comp_param;
 };
 

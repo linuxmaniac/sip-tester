@@ -2,8 +2,13 @@ Source: sip-tester
 Section: comm
 Priority: optional
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
-Uploaders: Mark Purcell <msp@debian.org>, ARAKI Yasuhiro <ar@debian.org>, Paul Wise <pabs@debian.org>
-Build-Depends: debhelper (>= 7), cdbs, pkg-config, libncurses5-dev, libnet1-dev, libpcap-dev, libgsl0-dev
+Uploaders: Mark Purcell <msp@debian.org>, ARAKI Yasuhiro <ar@debian.org>, Tzafrir Cohen <tzafrir@debian.org>
+Build-Depends: debhelper (>= 7.0.50~),
+ pkg-config,
+ libncurses5-dev,
+ libnet1-dev,
+ libpcap-dev,
+ libgsl0-dev,
 Build-Conflicts: libssl-dev
 Standards-Version: 3.8.4
 Homepage: http://sourceforge.net/projects/sipp/
@@ -13,7 +18,7 @@ Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/sip-tester/?op=log
 Package: sip-tester
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: a performance testing tool for the SIP protocol
+Description: Performance testing tool for the SIP protocol
  sip-tester is a test tool and traffic generator for the SIP
  protocol. It can be used to test SIP equipment like SIP
  proxies, SIP media servers, etc. and to emulate user agents

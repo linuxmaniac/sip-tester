@@ -31,7 +31,7 @@ class CSample;
 #include "prepare_pcap.h"
 #endif
 
-#define MAX_ACTION_MESSAGE 2
+#define MAX_ACTION_MESSAGE 3
 
 class CAction
 {
@@ -48,9 +48,12 @@ class CAction
       E_AT_ASSIGN_FROM_GETTIMEOFDAY,
       E_AT_JUMP,
       E_AT_LOOKUP,
+      E_AT_INSERT,
+      E_AT_REPLACE,
       E_AT_PAUSE_RESTORE,
       E_AT_LOG_TO_FILE,
       E_AT_LOG_WARNING,
+      E_AT_LOG_ERROR,
       E_AT_EXECUTE_CMD,
       E_AT_EXEC_INTCMD,
       E_AT_VAR_ADD,
@@ -62,6 +65,8 @@ class CAction
       E_AT_VAR_STRCMP,
       E_AT_VAR_TRIM,
       E_AT_VERIFY_AUTH,
+      E_AT_SET_DEST,
+      E_AT_CLOSE_CON,
 #ifdef PCAPPLAY
       E_AT_PLAY_PCAP_AUDIO,
       E_AT_PLAY_PCAP_VIDEO,
@@ -73,6 +78,8 @@ class CAction
     {
       E_LP_MSG = 0,
       E_LP_HDR,
+      E_LP_BODY,
+      E_LP_VAR,
       E_LP_NB_LOOKING_PLACE
     };
 
@@ -108,15 +115,16 @@ class CAction
     T_LookingPlace getLookingPlace();
     T_Comparator   getComparator();
     bool           getCheckIt();
+    bool           getCheckItInverse();
     bool           getCaseIndep();
     bool           getHeadersOnly();
     int            getVarId();
     int            getVarInId();
+    int            getVarIn2Id();
     int            getOccurence();
     char*          getLookingChar();
     char*          getRegularExpression();
     SendingMessage *getMessage(int n = 0);  /* log specific function  */
-    SendingMessage *getCmdLine();  /* exec specific function */
     T_IntCmdType   getIntCmd();   /* exec specific function */
 #ifdef PCAPPLAY
     pcap_pkts     *getPcapPkts(); /* send_packets specific function */
@@ -126,8 +134,10 @@ class CAction
     void setLookingPlace (T_LookingPlace P_value);
     void setComparator   (T_Comparator   P_value);
     void setCheckIt      (bool           P_value);
+    void setCheckItInverse (bool           P_value);
     void setVarId        (int            P_value);
     void setVarInId      (int            P_value);
+    void setVarIn2Id      (int            P_value);
     void setLookingChar  (char*          P_value);
     void setAction       (CAction        P_action);
     void setCaseIndep    (bool           P_action);
@@ -137,7 +147,6 @@ class CAction
     void setRegExp       (char*		 P_value);  /* ereg specific function. */
     int  executeRegExp   (char* P_string, VariableTable *P_callVarTable);
     void setMessage      (char*          P_value, int n = 0);  /* log specific function  */
-    void setCmdLine      (char*          P_value);  /* exec specific function */
     void setIntCmd       (T_IntCmdType   P_type );  /* exec specific function */
     void setDistribution (CSample *      P_value);  /* sample specific function  */
     void setDoubleValue  (double         P_value);  /* assign value specific function  */
@@ -164,10 +173,12 @@ class CAction
       T_LookingPlace M_lookingPlace;
       T_Comparator   M_comp;
       bool           M_checkIt;
+      bool           M_checkItInverse;
       bool           M_caseIndep;
       bool           M_headersOnly;
       int            M_varId;
       int            M_varInId;
+      int            M_varIn2Id;
       int            M_occurence;
       int            M_nbSubVarId;
       int            M_maxNbSubVarId;
@@ -178,8 +189,6 @@ class CAction
       SendingMessage *M_message[MAX_ACTION_MESSAGE];
       char *	     M_message_str[MAX_ACTION_MESSAGE];
       /* exec specific member */
-      SendingMessage *M_cmdLine;
-      char*          M_cmdLine_str;
       T_IntCmdType   M_IntCmd;
       /* sample specific member. */
       CSample	     *M_distribution;

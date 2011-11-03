@@ -24,6 +24,8 @@
 #ifndef _CVARIABLE
 #define _CVARIABLE
 
+#include <string>
+#include <map>
 #include <sys/types.h>
 #include <regex.h>
 
@@ -117,6 +119,7 @@ public:
   int find(const char *name, bool allocate);
   char *getName(int i);
   void validate();
+  void dump();
 private:
   AllocVariableTable *av_parent;
   str_int_map  variableMap;

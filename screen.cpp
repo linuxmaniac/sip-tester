@@ -168,9 +168,9 @@ void manage_oversized_file()
           "Max file size reached - no more logs\n",
            CStat::formatTime(&currentTime));
   fflush(f);
-  stop_all_traces(); 
+  stop_all_traces();
   print_all_responses = 0;
-  screen_errorf = 0; 
+  error_lfi.fptr = NULL;
 }
 
 
@@ -216,9 +216,10 @@ void screen_init(void (*exit_handler)())
 static void _screen_error(int fatal, bool use_errno, int error, const char *fmt, va_list ap)
 {
   static unsigned long long count = 0;
-  FILE * output;
   char * c = screen_last_error;
   struct timeval currentTime;
+
+  CStat::globalStat(fatal ? CStat::E_FATAL_ERRORS : CStat::E_WARNING);
 
   GET_TIME (&currentTime);
   
@@ -230,33 +231,33 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
   c+= sprintf(c, ".\n");
   screen_errors++;
 
-  if(screen_inited && !screen_errorf && print_all_responses) {
+  if(screen_inited && !error_lfi.fptr && print_all_responses) {
     rotate_errorf();
-    if(!screen_errorf) {
+    if(!error_lfi.fptr) {
       c += sprintf(c, "%s: Unable to create '%s': %s.\n",
                    screen_exename, screen_logfile, strerror(errno));
       screen_exit(EXIT_FATAL_ERROR);
     } else {
-      fprintf(screen_errorf, "%s: The following events occured:\n",
+      fprintf(error_lfi.fptr, "%s: The following events occured:\n",
               screen_exename);
-      fflush(screen_errorf);
+      fflush(error_lfi.fptr);
     }
   }
 
-  if(screen_errorf) {
-    count += fprintf(screen_errorf, "%s", screen_last_error);
-    fflush(screen_errorf);
+  if(error_lfi.fptr) {
+    count += fprintf(error_lfi.fptr, "%s", screen_last_error);
+    fflush(error_lfi.fptr);
     if (ringbuffer_size && count > ringbuffer_size) {
       rotate_errorf();
       count = 0;
     }
     if (max_log_size && count > max_log_size) {
       print_all_responses = 0;
-      if (screen_errorf) {
-	fflush(screen_errorf);
-	fclose(screen_errorf);
-	screen_errorf = NULL;
-	errorf_overwrite = false;
+      if (error_lfi.fptr) {
+	fflush(error_lfi.fptr);
+	fclose(error_lfi.fptr);
+	error_lfi.fptr = NULL;
+	error_lfi.overwrite = false;
       }
     }
   } else if (fatal) {
@@ -266,36 +267,45 @@ static void _screen_error(int fatal, bool use_errno, int error, const char *fmt,
 
   if(fatal) {
     if(!screen_inited) {
+      if(error == EADDRINUSE) {
+        exit(EXIT_BIND_ERROR);
+      } else {
       exit(EXIT_FATAL_ERROR);
+      }
+    } else {
+      if(error == EADDRINUSE) {
+        screen_exit(EXIT_BIND_ERROR);
     } else {
       screen_exit(EXIT_FATAL_ERROR);
     }
   }
+  }
 }
 
 extern "C" {
-int ERROR(const char *fmt, ...) {
+void ERROR(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   _screen_error(true, false, 0, fmt, ap);
   va_end(ap);
+  assert(0);
 }
 
-int ERROR_NO(const char *fmt, ...) {
+void ERROR_NO(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   _screen_error(true, true, errno, fmt, ap);
   va_end(ap);
 }
 
-int WARNING(const char *fmt, ...) {
+void WARNING(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   _screen_error(false, false, 0, fmt, ap);
   va_end(ap);
 }
 
-int WARNING_NO(const char *fmt, ...) {
+void WARNING_NO(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   _screen_error(false, true, errno, fmt, ap);
