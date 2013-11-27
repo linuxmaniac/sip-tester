@@ -66,7 +66,7 @@ const char * CAction::comparatorToString(T_Comparator comp) {
 
 bool CAction::compare(VariableTable *variableTable) {
   double lhs = variableTable->getVar(M_varInId)->getDouble();
-  double rhs = M_doubleValue;
+  double rhs = M_varIn2Id ? variableTable->getVar(M_varIn2Id)->getDouble() : M_doubleValue;
 
   switch(M_comp) {
     case E_C_EQ:
@@ -91,58 +91,60 @@ void CAction::afficheInfo()
 {
   if (M_action == E_AT_ASSIGN_FROM_REGEXP) {
     if(M_lookingPlace == E_LP_MSG) {
-      printf("Type[%d] - regexp[%s] where[%s] - checkIt[%d] - $%s",
+            printf("Type[%d] - regexp[%s] where[%s] - checkIt[%d] - checkItInverse[%d] - $%s",
              M_action,
 	     M_regularExpression,
              "Full Msg",
              M_checkIt,
+                   M_checkItInverse,
 		       display_scenario->allocVars->getName(M_varId));
     } else {
-      printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - $%d",
+            printf("Type[%d] - regexp[%s] where[%s-%s] - checkIt[%d] - checkItInverse[%d] - $%s",
              M_action,
 	     M_regularExpression,
              "Header",
              M_lookingChar,
-             M_checkIt, display_scenario->allocVars->getName(M_varId));
+                   M_checkIt,
+                   M_checkItInverse, display_scenario->allocVars->getName(M_varId));
     }
   } else if (M_action == E_AT_EXECUTE_CMD) {
-    if (M_cmdLine) {
-        printf("Type[%d] - command[%-32.32s]", M_action, M_cmdLine);
-    }
+    printf("Type[%d] - command[%-32.32s]", M_action, M_message_str[0]);
   } else if (M_action == E_AT_EXEC_INTCMD) {
       printf("Type[%d] - intcmd[%-32.32s]", M_action, strIntCmd(M_IntCmd));
   } else if (M_action == E_AT_LOG_TO_FILE) {
-      printf("Type[%d] - message[%-32.32s]", M_action, M_message[0]);
+      printf("Type[%d] - message[%-32.32s]", M_action, M_message_str[0]);
   } else if (M_action == E_AT_LOG_WARNING) {
-      printf("Type[%d] - warning[%-32.32s]", M_action, M_message[0]);
+      printf("Type[%d] - warning[%-32.32s]", M_action, M_message_str[0]);
+  } else if (M_action == E_AT_LOG_ERROR) {
+      printf("Type[%d] - error[%-32.32s]", M_action, M_message_str[0]);
   } else if (M_action == E_AT_ASSIGN_FROM_SAMPLE) {
       char tmp[40];
       M_distribution->textDescr(tmp, sizeof(tmp));
-      printf("Type[%d] - sample varId[%d] %s", M_action, display_scenario->allocVars->getName(M_varId), tmp);
+      printf("Type[%d] - sample varId[%s] %s", M_action, display_scenario->allocVars->getName(M_varId), tmp);
   } else if (M_action == E_AT_ASSIGN_FROM_VALUE) {
-      printf("Type[%d] - assign varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+      printf("Type[%d] - assign varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_ASSIGN_FROM_INDEX) {
-      printf("Type[%d] - assign index[%d]", M_action, display_scenario->allocVars->getName(M_varId));
+      printf("Type[%d] - assign index[%s]", M_action, display_scenario->allocVars->getName(M_varId));
   } else if (M_action == E_AT_ASSIGN_FROM_GETTIMEOFDAY) {
-      printf("Type[%d] - assign gettimeofday[%d, %d]", M_action, display_scenario->allocVars->getName(M_varId));
+      printf("Type[%d] - assign gettimeofday[%s, %s]", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_subVarId[0]));
   } else if (M_action == E_AT_ASSIGN_FROM_STRING) {
-      printf("Type[%d] - string assign varId[%d] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message[0]);
+      printf("Type[%d] - string assign varId[%s] [%-32.32s]", M_action, display_scenario->allocVars->getName(M_varId), M_message_str[0]);
   } else if (M_action == E_AT_JUMP) {
-      printf("Type[%d] - jump varInId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
+      printf("Type[%d] - jump varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
   } else if (M_action == E_AT_PAUSE_RESTORE) {
-      printf("Type[%d] - restore pause varInId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
+      printf("Type[%d] - restore pause varInId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varInId), M_doubleValue);
   } else if (M_action == E_AT_VAR_ADD) {
-      printf("Type[%d] - add varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+      printf("Type[%d] - add varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_VAR_MULTIPLY) {
-      printf("Type[%d] - multiply varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+      printf("Type[%d] - multiply varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_VAR_DIVIDE) {
-      printf("Type[%d] - divide varId[%d] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
+      printf("Type[%d] - divide varId[%s] %lf", M_action, display_scenario->allocVars->getName(M_varId), M_doubleValue);
   } else if (M_action == E_AT_VAR_TRIM) {
-      printf("Type[%d] - trim varId[%d]", M_action, display_scenario->allocVars->getName(M_varId));
+      printf("Type[%d] - trim varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
   } else if (M_action == E_AT_VAR_TEST) {
-      printf("Type[%d] - divide varId[%d] varInId[%d] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
+      printf("Type[%d] - divide varId[%s] varInId[%s] %s %lf", M_action, display_scenario->allocVars->getName(M_varId), display_scenario->allocVars->getName(M_varInId), comparatorToString(M_comp), M_doubleValue);
   } else if (M_action == E_AT_VAR_TO_DOUBLE) {
-      printf("Type[%d] - toDouble varId[%d]", M_action, display_scenario->allocVars->getName(M_varId));
+      printf("Type[%d] - toDouble varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
 #ifdef PCAPPLAY
   } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
       printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
@@ -159,14 +161,15 @@ CAction::T_IntCmdType   CAction::getIntCmd ()      { return(M_IntCmd);       }
 CAction::T_Comparator   CAction::getComparator ()  { return(M_comp);	     }
 
 bool           CAction::getCheckIt()      { return(M_checkIt);      }
+bool           CAction::getCheckItInverse() { return(M_checkItInverse);      }
 bool           CAction::getCaseIndep()    { return(M_caseIndep);    }
 bool           CAction::getHeadersOnly()  { return(M_headersOnly);  }
 int            CAction::getOccurence()    { return(M_occurence);    }
 int            CAction::getVarId()        { return(M_varId);        }
 int            CAction::getVarInId()      { return(M_varInId);      }
+int            CAction::getVarIn2Id()      { return(M_varIn2Id);      }
 char*          CAction::getLookingChar()  { return(M_lookingChar);  }
 SendingMessage *CAction::getMessage(int n)      { return(M_message[n]);      }
-SendingMessage *CAction::getCmdLine()      { return(M_cmdLine);      }
 CSample*       CAction::getDistribution() { return(M_distribution); }
 double         CAction::getDoubleValue()  { return(M_doubleValue);  }
 char*          CAction::getStringValue()  { return(M_stringValue);  }
@@ -180,10 +183,14 @@ void CAction::setLookingPlace (CAction::T_LookingPlace P_value)
 { M_lookingPlace = P_value; }
 void CAction::setCheckIt      (bool           P_value) 
 { M_checkIt      = P_value; }
+void CAction::setCheckItInverse      (bool           P_value) 
+{ M_checkItInverse      = P_value; }
 void CAction::setVarId        (int            P_value) 
 { M_varId        = P_value; }
 void CAction::setVarInId      (int            P_value)
 { M_varInId        = P_value; }
+void CAction::setVarIn2Id      (int            P_value)
+{ M_varIn2Id        = P_value; }
 void CAction::setCaseIndep    (bool           P_value)
 { M_caseIndep    = P_value; }
 void CAction::setOccurence   (int            P_value) 
@@ -328,40 +335,21 @@ int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
 void CAction::setSubString(char** P_target, char* P_source, int P_start, int P_stop)
 {
   int sizeOf;
-  int sourceLength;
-  size_t L_size = 0;
 
   if(P_source != NULL) {
     sizeOf = P_stop - P_start;
-    if(sizeOf > 0) {
-      L_size = (size_t) sizeOf;
-      L_size += 1;
-      (*P_target) = new char[L_size];
+    (*P_target) = new char[sizeOf + 1];
 
+    if (sizeOf > 0) {
       memcpy((*P_target), &(P_source[P_start]), sizeOf);
+    }
 
-      (*P_target)[sizeOf] = '\0';
-	 }
+    (*P_target)[sizeOf] = '\0';
   } else {
     *P_target = NULL ;
   }
 }
 
-
-void CAction::setCmdLine  (char*          P_value)
-{
-  if(M_cmdLine != NULL)
-  {
-    delete [] M_cmdLine;
-    M_cmdLine = NULL;
-  }
-
-  if(P_value != NULL)
-  {
-    M_cmdLine_str = strdup(P_value);
-    M_cmdLine = new SendingMessage(M_scenario, P_value, true /* skip sanity */);
-  }
-}
 
 #ifdef PCAPPLAY
 void CAction::setPcapArgs (pcap_pkts  *  P_value)
@@ -426,6 +414,7 @@ void CAction::setAction(CAction P_action)
 
   setLookingChar  ( P_action.getLookingChar()  );
   setCheckIt      ( P_action.getCheckIt()      );
+    setCheckItInverse      ( P_action.getCheckItInverse()      );
   setCaseIndep    ( P_action.getCaseIndep()    ); 
   setOccurence    ( P_action.getOccurence()   );
   setHeadersOnly  ( P_action.getHeadersOnly()  );
@@ -433,7 +422,6 @@ void CAction::setAction(CAction P_action)
     setMessage(P_action.M_message_str[L_i], L_i);
   }
   setRegExp       ( P_action.M_regularExpression);
-  setCmdLine      ( P_action.M_cmdLine_str     );
   setIntCmd       ( P_action.M_IntCmd          );
 #ifdef PCAPPLAY
   setPcapArgs     ( P_action.M_pcapArgs        );
@@ -445,12 +433,14 @@ CAction::CAction(scenario *scenario)
   M_action       = E_AT_NO_ACTION;
   M_varId        = 0;
   M_varInId        = 0;
+  M_varIn2Id        = 0;
 
   M_nbSubVarId    = 0;
   M_maxNbSubVarId = 0;
   M_subVarId      = NULL;
 
   M_checkIt      = false;
+    M_checkItInverse      = false;
   M_lookingPlace = E_LP_MSG;
   M_lookingChar  = NULL;
   M_caseIndep    = false;
@@ -460,7 +450,6 @@ CAction::CAction(scenario *scenario)
     M_message[i]   = NULL;
     M_message_str[i] = NULL;
   }
-  M_cmdLine      = NULL;
   M_IntCmd       = E_INTCMD_INVALID;
   M_doubleValue  = 0;
   M_stringValue  = NULL;
@@ -468,7 +457,6 @@ CAction::CAction(scenario *scenario)
 #ifdef PCAPPLAY
   M_pcapArgs     = NULL;
 #endif
-  M_cmdLine_str	 = NULL;
   M_scenario     = scenario;
   M_regExpSet    = false;
   M_regularExpression = NULL;
@@ -489,16 +477,6 @@ CAction::~CAction()
     }
     free(M_message_str[i]);
     M_message_str[i] = NULL;
-  }
-  if(M_cmdLine != NULL)
-  {
-    delete M_cmdLine;
-    M_cmdLine = NULL;
-  }
-  if(M_cmdLine_str != NULL)
-  {
-    delete M_cmdLine_str;
-    M_cmdLine_str = NULL;
   }
   if(M_subVarId != NULL)
   {

@@ -43,6 +43,7 @@
 #define MODE_CLIENT        0
 #define MODE_SERVER        1
 
+#define MODE_3PCC_NONE		0
 #define MODE_3PCC_CONTROLLER_A  2
 #define MODE_3PCC_CONTROLLER_B  3   
 #define MODE_3PCC_A_PASSIVE     4
@@ -108,9 +109,13 @@ public:
   bool           hide;
   char *	 display_str;
   int		 next;
+  char *         nextLabel;
   int            test;
+  int            condexec;
+  bool           condexec_inverse;
   int            chance;/* 0=always, RAND_MAX+1=never (test rand() >= chance) */
   int		 on_timeout;
+  char *         onTimeoutLabel;
 
   /* Statistics */
   unsigned long   nb_sent;
@@ -139,31 +144,48 @@ public:
 
   char           *recv_response_for_cseq_method_list;
   int            start_txn;
+  int            ack_txn;
   int            response_txn;
+  int            index;
+  const char *         desc;
 
-  message();
+  message(int index, const char *desc);
   ~message();
 };
+
+typedef std::vector<message *> msgvec;
+
+struct txnControlInfo {
+  char *name;
+  bool isInvite;
+  int acks;
+  int started;
+  int responses;
+};
+typedef std::vector<txnControlInfo> txnvec;
+
 
 class scenario {
 public:
   scenario(char * filename, int deflt);
   ~scenario();
 
-  message **messages;
-  int length;
+  void runInit();
+
+  msgvec messages;
+  msgvec initmessages;
   char *name;
   int duration;
-  int maxTxnUsed;
-  int_str_map txnRevMap;
+  txnvec transactions;
   int unexpected_jump;
   int retaddr;
   int pausedaddr;
 
   void computeSippMode();
 
-  bool rtd_stopped[MAX_RTD_INFO_LENGTH];
   int get_var(const char *varName, const char *what);
+  int get_counter(const char *varName, const char *what);
+  int get_rtd(const char *ptr, bool start);
   int find_var(const char *varName, const char *what);
 
   CStat *stats;
@@ -173,44 +195,39 @@ private:
 
   /* The mapping of labels to IDs. */
   str_int_map labelMap;
-  /* The string label representations. */
-  int_str_map nextLabels;
-  int_str_map ontimeoutLabels;
+  str_int_map initLabelMap;
 
   str_int_map txnMap;
-  int_int_map txnStarted;
-  int_int_map txnResponses;
-
 
   bool found_timewait;
-  bool rtd_started[MAX_RTD_INFO_LENGTH];
 
-  void getBookKeeping();
-  void getCommonAttributes();
-  void getActionForThisMessage();
+  void getBookKeeping(message *message);
+  void getCommonAttributes(message *message);
+  void getActionForThisMessage(message *message);
+  void parseAction(CActions *actions);
   void handle_arithmetic(CAction *tmpAction, char *what);
   void handle_rhs(CAction *tmpAction, char *what);
+  void checkOptionalRecv(char *elem, unsigned int scenario_file_cursor);
 
-  void apply_labels();
-  void init_rtds();
-  void validate_rtds();
+  void apply_labels(msgvec v, str_int_map labels);
   void validate_variable_usage();
   void validate_txn_usage();
 
-  int get_txn(const char *txnName, const char *what, bool start);
+  int get_txn(const char *txnName, const char *what, bool start, bool isInvite, bool isAck);
   int xp_get_var(const char *name, const char *what);
   int xp_get_var(const char *name, const char *what, int defval);
 
-  void expand(int length);
-
   bool hidedefault;
+  bool last_recv_optional;
 };
 
 /* There are external variable containing the current scenario */
 extern scenario      *main_scenario;
 extern scenario      *ooc_scenario;
 extern scenario      *display_scenario;
-extern int           toolMode;
+extern int           creationMode;
+extern int           sendMode;
+extern int           thirdPartyMode;
 
 extern message::ContentLengthFlag  content_length_flag;
 

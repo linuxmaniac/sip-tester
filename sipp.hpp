@@ -42,6 +42,7 @@
 #include <ctype.h>
 #include <signal.h>
 #include <time.h>
+#include <limits.h>
 #include <vector>
 #include <string>
 #include <map>
@@ -67,10 +68,13 @@
 #include "socketowner.hpp"
 #include "call.hpp"
 #include "comp.h"
+#include "variables.hpp"
 #include "stat.hpp"
 #include "actions.hpp"
-#include "variables.hpp"
 #include "infile.hpp"
+#include "opentask.hpp"
+#include "reporttask.hpp"
+#include "watchdog.hpp"
 /* Open SSL stuff */
 #ifdef _USE_OPENSSL
 #include "sslcommon.h" 
@@ -184,23 +188,25 @@ extern int	          rate_max	          _DEFVAL(0);
 extern bool	          rate_quit		  _DEFVAL(true);
 extern int                users                   _DEFVAL(-1);
 extern int               rate_period_ms           _DEFVAL(DEFAULT_RATE_PERIOD_MS);
+extern int                sleeptime               _DEFVAL(0);
 extern unsigned long      defl_recv_timeout       _DEFVAL(0);
 extern unsigned long      defl_send_timeout       _DEFVAL(0);
 extern unsigned long      global_timeout          _DEFVAL(0);
 extern int                transport               _DEFVAL(DEFAULT_TRANSPORT);
 extern bool               retrans_enabled         _DEFVAL(1);
+extern int                rtcheck	          _DEFVAL(RTCHECK_FULL);
 extern int                max_udp_retrans         _DEFVAL(UDP_MAX_RETRANS);
 extern int                max_invite_retrans      _DEFVAL(UDP_MAX_RETRANS_INVITE_TRANSACTION);
 extern int                max_non_invite_retrans  _DEFVAL(UDP_MAX_RETRANS_NON_INVITE_TRANSACTION);
 extern unsigned long      default_behaviors       _DEFVAL(DEFAULT_BEHAVIOR_ALL);
 extern unsigned long	  deadcall_wait		  _DEFVAL(DEFAULT_DEADCALL_WAIT);
 extern bool               pause_msg_ign           _DEFVAL(0);
-extern int                auto_answer             _DEFVAL(0);
+extern bool               auto_answer             _DEFVAL(false);
 extern int                multisocket             _DEFVAL(0);
 extern int                compression             _DEFVAL(0);
 extern int                peripsocket             _DEFVAL(0);
 extern int                peripfield              _DEFVAL(0);
-extern int                bind_local              _DEFVAL(0);
+extern bool               bind_local              _DEFVAL(false);
 extern void             * monosocket_comp_state   _DEFVAL(0);
 extern char             * service                 _DEFVAL(DEFAULT_SERVICE);
 extern char             * auth_password           _DEFVAL(DEFAULT_AUTH_PASSWORD);
@@ -211,17 +217,20 @@ extern bool		  periodic_rtd		  _DEFVAL(false);
 extern char		* stat_delimiter          _DEFVAL(";");
 
 extern bool               timeout_exit            _DEFVAL(false);
+extern bool               timeout_error           _DEFVAL(false);
 
 extern unsigned long      report_freq_dumpRtt     _DEFVAL
                                                 (DEFAULT_FREQ_DUMP_RTT);
 
-extern unsigned int       max_multi_socket        _DEFVAL
+extern int		  max_multi_socket        _DEFVAL
                                                 (DEFAULT_MAX_MULTI_SOCKET);
 extern bool		  skip_rlimit		  _DEFVAL(false);
 
 extern unsigned int       timer_resolution        _DEFVAL(DEFAULT_TIMER_RESOLUTION);
 extern int                max_recv_loops          _DEFVAL(MAX_RECV_LOOPS_PER_CYCLE);
 extern int                max_sched_loops         _DEFVAL(MAX_SCHED_LOOPS_PER_CYCLE);
+ 
+extern unsigned int       global_t2               _DEFVAL(DEFAULT_T2_TIMER_VALUE);
  
 extern char               local_ip[40];
 extern char               local_ip_escaped[42];
@@ -245,11 +254,11 @@ extern char               remote_ip[40];
 extern char               remote_ip_escaped[42];
 extern int                remote_port             _DEFVAL(DEFAULT_PORT);
 extern unsigned int       pid                     _DEFVAL(0);
-extern int                print_all_responses     _DEFVAL(0);
+extern bool               print_all_responses     _DEFVAL(false);
 extern unsigned long      stop_after              _DEFVAL(0xffffffff);
 extern int                quitting                _DEFVAL(0);
 extern int                interrupt               _DEFVAL(0);
-extern int                paused                  _DEFVAL(0);
+extern bool               paused                  _DEFVAL(false);
 extern int                lose_packets            _DEFVAL(0);
 extern double             global_lost             _DEFVAL(0.0);
 extern char               remote_host[255]; 
@@ -297,7 +306,6 @@ extern char                 *tls_crl_name      _DEFVAL(DEFAULT_TLS_CRL)  ;
 typedef std::map<string, FileContents *> file_map;
 extern file_map inFiles;
 typedef std::map<string, str_int_map *> file_index;
-extern file_index infIndex;
 extern char *ip_file _DEFVAL(NULL);
 extern char *default_file _DEFVAL(NULL);
 
@@ -353,7 +361,6 @@ extern int           last_running_calls           _DEFVAL(0);
 extern int           last_woken_calls             _DEFVAL(0);
 extern int           last_paused_calls            _DEFVAL(0);
 extern unsigned int  open_calls_allowed           _DEFVAL(0);
-extern unsigned long last_rate_change_time        _DEFVAL(0);
 extern unsigned long last_report_time             _DEFVAL(0);
 extern unsigned long last_dump_time               _DEFVAL(0);
 
@@ -363,6 +370,21 @@ extern unsigned long clock_tick                   _DEFVAL(0);
 extern unsigned long scheduling_loops             _DEFVAL(0);
 extern unsigned long last_timer_cycle             _DEFVAL(0);
 
+extern unsigned long watchdog_interval		  _DEFVAL(400);
+extern unsigned long watchdog_minor_threshold	  _DEFVAL(500);
+extern unsigned long watchdog_minor_maxtriggers	  _DEFVAL(120);
+extern unsigned long watchdog_major_threshold	  _DEFVAL(3000);
+extern unsigned long watchdog_major_maxtriggers	  _DEFVAL(10);
+extern unsigned long watchdog_reset		  _DEFVAL(600000);
+
+
+/********************* dynamic Id ************************* */
+extern  int maxDynamicId    _DEFVAL(12000);  // max value for dynamicId; this value is reached 
+extern  int startDynamicId  _DEFVAL(10000);  // offset for first dynamicId  FIXME:in CmdLine
+extern  int stepDynamicId   _DEFVAL(4);      // step of increment for dynamicId
+
+
+
 #define GET_TIME(clock)       \
 {                             \
   struct timezone tzp;        \
@@ -371,8 +393,9 @@ extern unsigned long last_timer_cycle             _DEFVAL(0);
 
 /*********************** Global Sockets  **********************/
 
-extern struct sipp_socket *main_socket            _DEFVAL(0);
-extern struct sipp_socket *tcp_multiplex          _DEFVAL(0);
+extern struct sipp_socket *main_socket            _DEFVAL(NULL);
+extern struct sipp_socket *main_remote_socket     _DEFVAL(NULL);
+extern struct sipp_socket *tcp_multiplex          _DEFVAL(NULL);
 extern int           media_socket                 _DEFVAL(0);
 extern int           media_socket_video           _DEFVAL(0);
 
@@ -383,7 +406,7 @@ extern char          hostname[80];
 extern bool          is_ipv6                      _DEFVAL(false);
 
 extern int           reset_number                 _DEFVAL(0);
-extern int	     reset_close                  _DEFVAL(1);
+extern bool	     reset_close                  _DEFVAL(true);
 extern int	     reset_sleep                  _DEFVAL(1000);
 extern bool	     sendbuffer_warn              _DEFVAL(false);
 /* A list of sockets pending reset. */
@@ -427,20 +450,13 @@ enum E_Alter_YesNo
 /************************** Trace Files ***********************/
 
 extern FILE * screenf                             _DEFVAL(0);
-extern FILE * logfile                             _DEFVAL(0);
-extern FILE * messagef                            _DEFVAL(0);
-extern FILE * shortmessagef                       _DEFVAL(0);
 extern FILE * countf                              _DEFVAL(0);
 // extern FILE * timeoutf                            _DEFVAL(0);
 extern bool   useMessagef                         _DEFVAL(0);
+extern bool   useCallDebugf                       _DEFVAL(0);
 extern bool   useShortMessagef                    _DEFVAL(0);
 extern bool   useScreenf                          _DEFVAL(0);
 extern bool   useLogf                             _DEFVAL(0);
-// should we overwrite the existing files?
-extern bool   messagef_overwrite		  _DEFVAL(true);
-extern bool   shortmessagef_overwrite		  _DEFVAL(true);
-extern bool   errorf_overwrite			  _DEFVAL(true);
-extern bool   logfile_overwrite			  _DEFVAL(true);
 //extern bool   useTimeoutf                         _DEFVAL(0);
 extern bool   dumpInFile                          _DEFVAL(0);
 extern bool   dumpInRtt                           _DEFVAL(0);
@@ -454,12 +470,45 @@ extern int    ringbuffer_files			  _DEFVAL(0);
 
 extern char   screen_last_error[32768];
 extern char   screen_logfile[MAX_PATH]            _DEFVAL("");
-extern FILE   * screen_errorf			  _DEFVAL(NULL);
 
-void rotate_messagef();
-void rotate_shortmessagef();
-void rotate_logfile();
+/* Log Rotation Functions. */
+struct logfile_id {
+  time_t start;
+  int n;
+};
+
+struct logfile_info {
+	char *name;
+	bool check;
+	FILE *fptr;
+	int nfiles;
+	struct logfile_id *ftimes;
+	char file_name[MAX_PATH];
+	bool overwrite;
+	bool fixedname;
+	time_t starttime;
+	unsigned int count;
+};
+
+#ifdef GLOBALS_FULL_DEFINITION
+#define LOGFILE(name, s, check) \
+	struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0};
+#else
+#define LOGFILE(name, s, check) \
+	extern struct logfile_info name;
+#endif
+LOGFILE(calldebug_lfi, "calldebug", true);
+LOGFILE(message_lfi, "messages", true);
+LOGFILE(shortmessage_lfi, "shortmessages", true);
+LOGFILE(log_lfi, "logs", true);
+LOGFILE(error_lfi, "errors", false);
+
 void rotate_errorf();
+
+/* Screen/Statistics Printing Functions. */
+void print_statistics(int last);
+void print_count_file(FILE *f, int header);
+
 
 /********************* Mini-Parser Routines *******************/
 
@@ -501,6 +550,7 @@ struct sipp_socket {
 	bool ss_ipv6;
 	bool ss_control; /* Is this a control socket? */
 	bool ss_call_socket; /* Is this a call socket? */
+	bool ss_changed_dest; /* Has the destination changed from default. */
 
 	int ss_fd;	/* The underlying file descriptor for this socket. */
 	void *ss_comp_state; /* The compression state. */
@@ -583,6 +633,7 @@ void free_peer_addr_map();
 extern "C" {
 #endif
 int TRACE_MSG(char *fmt, ...);
+int TRACE_CALLDEBUG(char *fmt, ...);
 int TRACE_SHORTMSG(char *fmt, ...);
 int LOG_MSG(char *fmt, ...);
 #ifdef __cplusplus
