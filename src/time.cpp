@@ -32,35 +32,55 @@
  *           Jan Andres from Freenet
  *           Ben Evans from Open Cloud
  *           Marc Van Diest from Belgacom
- *	     Stefan Esser
+ *           Stefan Esser
  *           Andy Aicken
  */
 
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
 #include "time.hpp"
 #include "sipp.hpp"
 #define MICROSECONDS_PER_SECOND 1000000LL
-#define MILLISECONDS_PER_MICROSECOND 1000LL
+#define MICROSECONDS_PER_MILLISECOND 1000LL
+#define NANOSECONDS_PER_MICROSECOND 1000LL
 
 // Returns the number of microseconds that have passed since SIPp
 // started. Also updates the current clock_tick.
 unsigned long long getmicroseconds()
 {
-    struct timeval time;
+    struct timespec time;
     unsigned long long microseconds;
     static unsigned long long start_time = 0;
 
-    gettimeofday(&time, NULL);
-    microseconds = (MICROSECONDS_PER_SECOND * time.tv_sec) + time.tv_usec;
+#ifdef __MACH__
+    // OS X does not have clock_gettime, use clock_get_time
+    clock_serv_t cclock;
+    mach_timespec_t mts;
+    host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
+    clock_get_time(cclock, &mts);
+    mach_port_deallocate(mach_task_self(), cclock);
+    time.tv_sec = mts.tv_sec;
+    time.tv_nsec = mts.tv_nsec;
+#else
+#if defined(CLOCK_MONOTONIC_COARSE)
+    clock_gettime(CLOCK_MONOTONIC_COARSE, &time);
+#else
+    clock_gettime(CLOCK_MONOTONIC, &time);
+#endif
+#endif
+    microseconds = (MICROSECONDS_PER_SECOND * time.tv_sec) + (time.tv_nsec / NANOSECONDS_PER_MICROSECOND);
     if (start_time == 0) {
       start_time = microseconds - 1;
     }
     microseconds = microseconds - start_time;
 
     // Static global from sipp.hpp
-    clock_tick = microseconds / MILLISECONDS_PER_MICROSECOND;
+    clock_tick = microseconds / MICROSECONDS_PER_MILLISECOND;
 
     return microseconds;
 }
@@ -69,7 +89,7 @@ unsigned long long getmicroseconds()
 // started. Also updates the current clock_tick.
 unsigned long getmilliseconds()
 {
-    return getmicroseconds() / MILLISECONDS_PER_MICROSECOND;
+    return getmicroseconds() / MICROSECONDS_PER_MILLISECOND;
 }
 
 // Sleeps for the given number of microseconds. Avoids the potential

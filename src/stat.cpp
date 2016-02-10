@@ -101,12 +101,12 @@
        i++)                                            \
     M_counters[i] = (unsigned long) 0;                         \
   for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-	M_genericCounters[j * GENERIC_TYPES + GENERIC_C] = 0; \
+    M_genericCounters[j * GENERIC_TYPES + GENERIC_C] = 0; \
   } \
   for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_COUNT] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUM] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_C * RTD_TYPES) + RTD_SUMSQ] = 0; \
   } \
 }
 
@@ -122,12 +122,12 @@
        i++)                                            \
     M_counters[i] = (unsigned long) 0;                         \
   for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-	M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0; \
+    M_genericCounters[j * GENERIC_TYPES + GENERIC_PD] = 0; \
   } \
   for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_COUNT] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUM] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PD * RTD_TYPES) + RTD_SUMSQ] = 0; \
   } \
 }
 
@@ -143,12 +143,12 @@
        i++)                                            \
     M_counters[i] = (unsigned long) 0;                         \
   for (unsigned int j=0;j<M_genericMap.size(); j++) { \
-	M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0; \
+    M_genericCounters[j * GENERIC_TYPES + GENERIC_PL] = 0; \
   } \
   for (unsigned int j=0;j<M_rtdMap.size(); j++) { \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0; \
-	M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_COUNT] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUM] = 0; \
+    M_rtdInfo[(j * GENERIC_TYPES * RTD_TYPES) + (GENERIC_PL * RTD_TYPES) + RTD_SUMSQ] = 0; \
   } \
 }
 
@@ -316,7 +316,7 @@ int CStat::createIntegerTable(char * P_listeStr,
 }
 
 
-void CStat::setFileName(char * P_name, char * P_extension)
+void CStat::setFileName(const char* P_name, const char* P_extension)
 {
     int sizeOf, sizeOfExtension;
 
@@ -329,14 +329,12 @@ void CStat::setFileName(char * P_name, char * P_extension)
                 if(sizeOfExtension > 0) {
                     if(M_fileName != NULL)
                         delete [] M_fileName;
-                    sizeOf += sizeOfExtension;
                     M_fileName = new char[MAX_PATH];
                     sprintf(M_fileName, "%s_%d_", P_name, getpid());
                     strcat(M_fileName, P_extension);
                 } else {
                     if(M_fileName != NULL)
                         delete [] M_fileName;
-                    sizeOf += strlen(DEFAULT_EXTENSION);
                     M_fileName = new char[MAX_PATH];
                     sprintf(M_fileName, "%s_%d_", P_name, getpid());
                     strcat(M_fileName, DEFAULT_EXTENSION);
@@ -344,7 +342,6 @@ void CStat::setFileName(char * P_name, char * P_extension)
             } else {
                 if(M_fileName != NULL)
                     delete [] M_fileName;
-                sizeOf += strlen(DEFAULT_EXTENSION);
                 M_fileName = new char[MAX_PATH];
                 sprintf(M_fileName, "%s_%d_", P_name, getpid());
                 strcat(M_fileName, DEFAULT_EXTENSION);
@@ -361,7 +358,7 @@ void CStat::setFileName(char * P_name, char * P_extension)
 }
 
 
-void CStat::setFileName(char * P_name)
+void CStat::setFileName(const char* P_name)
 {
     int sizeOf;
 
@@ -384,7 +381,7 @@ void CStat::setFileName(char * P_name)
 }
 
 
-void CStat::initRtt(char * P_name, char * P_extension,
+void CStat::initRtt(const char* P_name, const char* P_extension,
                     unsigned long P_report_freq_dumpRtt)
 {
     int sizeOf, sizeOfExtension;
@@ -1077,7 +1074,7 @@ CStat::CStat ()
 
 char* CStat::sRepartitionHeader(T_dynamicalRepartition * tabRepartition,
                                 int sizeOfTab,
-                                char * P_repartitionName)
+                                const char * P_repartitionName)
 {
     static char *repartitionHeader = NULL;
     char buffer[MAX_CHAR_BUFFER_SIZE];
@@ -1523,7 +1520,7 @@ void CStat::dumpData ()
         }
         (*M_outputStream) << sRepartitionHeader(M_CallLengthRepartition,
                                                 M_SizeOfCallLengthRepartition,
-                                                (char*) "CallLengthRepartition");
+                                                "CallLengthRepartition");
         (*M_outputStream) << endl;
         M_headerAlreadyDisplayed = true;
     }
@@ -1737,7 +1734,7 @@ char* CStat::formatTime (struct timeval* P_tv, bool with_epoch)
                     L_currentDate->tm_min,
                     L_currentDate->tm_sec,
                     (long)P_tv->tv_usec,
-                    P_tv->tv_sec,
+                    (long)P_tv->tv_sec, /* time_t is int on some bsds */
                     (long)P_tv->tv_usec);
         }
     }
@@ -1776,13 +1773,8 @@ int CFixed::timeDescr(char *s, int len)
 {
     return time_string(value, s, len);
 }
-double CFixed::cdfInv(double percentile)
+double CFixed::cdfInv(double /*percentile*/)
 {
-
-    // We want the percentile parameter, as it means we have a consistent
-    // interface - cast it to void to suppress warnings.
-    (void)percentile;
-
     return value;
 }
 
@@ -1802,13 +1794,8 @@ int CDefaultPause::timeDescr(char *s, int len)
 {
     return time_string(duration, s, len);
 }
-double CDefaultPause::cdfInv(double percentile)
+double CDefaultPause::cdfInv(double /*percentile*/)
 {
-
-    // We want the percentile parameter, as it means we have a consistent
-    // interface - cast it to void to suppress warnings.
-    (void)percentile;
-
     return duration;
 }
 
@@ -2124,5 +2111,3 @@ double CNegBin::cdfInv(double percentile)
     return 0;
 }
 #endif
-
-

@@ -32,9 +32,10 @@
  *           Charles P Wright from IBM Research
  *           Martin Van Leeuwen
  *           Andy Aicken
- *	     Michael Hirschbichler
+ *           Michael Hirschbichler
  */
 
+#include "strings.hpp"
 #include <strings.h>
 #include <string.h>
 #include <stdlib.h>
@@ -50,6 +51,7 @@ void get_host_and_port(const char * addr, char * host, int * port)
      */
     const char *has_brackets;
     int len;
+    int port_result = 0;
 
     has_brackets = strchr(addr, '[');
     if (has_brackets != NULL) {
@@ -67,18 +69,18 @@ void get_host_and_port(const char * addr, char * host, int * port)
         first_colon_location = strchr(host, ':');
         if (first_colon_location == NULL) {
             /* No colon - just set the port to 0 */
-            *port = 0;
+            port_result = 0;
         } else {
             second_colon_location = strchr(first_colon_location + 1, ':');
             if (second_colon_location != NULL) {
                 /* Found a second colon in addr - so this is an IPv6 address
                  * without a port. Set the port to 0 */
-                *port = 0;
+                port_result = 0;
             } else {
                 /* IPv4 address or hostname with a colon in it - convert the colon to
                  * a NUL terminator, and set the value after it as the port */
                 *first_colon_location = '\0';
-                *port = atol(first_colon_location + 1);
+                port_result = atol(first_colon_location + 1);
             }
         }
 
@@ -98,10 +100,15 @@ void get_host_and_port(const char * addr, char * host, int * port)
         /* Check for a port specified after the ] */
         colon_before_port = strchr(second_bracket + 1, ':');
         if (colon_before_port != NULL) {
-            *port = atol(colon_before_port + 1);
+            port_result = atol(colon_before_port + 1);
         } else {
-            *port = 0;
+            port_result = 0;
         }
+    }
+
+    // Set the port argument if it wasn't NULL
+    if (port != NULL) {
+        *port = port_result;
     }
 }
 
@@ -189,3 +196,69 @@ void trim(char *s)
 }
 
 
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(GetHostAndPort, IPv6) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("fe80::92a4:deff:fe74:7af5", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+}
+
+TEST(GetHostAndPort, IPv6Brackets) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("[fe80::92a4:deff:fe74:7af5]", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+}
+
+TEST(GetHostAndPort, IPv6BracketsAndPort) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("[fe80::92a4:deff:fe74:7af5]:999", host_result, &port_result);
+    EXPECT_EQ(999, port_result);
+    EXPECT_STREQ("fe80::92a4:deff:fe74:7af5", host_result);
+}
+
+TEST(GetHostAndPort, IPv4) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("127.0.0.1", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("127.0.0.1", host_result);
+}
+
+TEST(GetHostAndPort, IPv4AndPort) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("127.0.0.1:999", host_result, &port_result);
+    EXPECT_EQ(999, port_result);
+    EXPECT_STREQ("127.0.0.1", host_result);
+}
+
+TEST(GetHostAndPort, IgnorePort) {
+    char host_result[255];
+    get_host_and_port("127.0.0.1", host_result, NULL);
+    EXPECT_STREQ("127.0.0.1", host_result);
+}
+
+TEST(GetHostAndPort, DNS) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("sipp.sf.net", host_result, &port_result);
+    EXPECT_EQ(0, port_result);
+    EXPECT_STREQ("sipp.sf.net", host_result);
+}
+
+TEST(GetHostAndPort, DNSAndPort) {
+    int port_result = -1;
+    char host_result[255];
+    get_host_and_port("sipp.sf.net:999", host_result, &port_result);
+    EXPECT_EQ(999, port_result);
+    EXPECT_STREQ("sipp.sf.net", host_result);
+}
+
+#endif //GTEST

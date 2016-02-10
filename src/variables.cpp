@@ -360,7 +360,7 @@ void AllocVariableTable::dump()
     if (av_parent) {
         av_parent->dump();
     }
-    WARNING("%d level %d variables:", variableMap.size(), level);
+    WARNING("%zu level %d variables:", variableMap.size(), level);
     for (str_int_map::iterator i = variableMap.begin(); i != variableMap.end(); i++) {
         WARNING("%s", i->first.c_str());
     }
@@ -372,7 +372,9 @@ void AllocVariableTable::validate()
         if (variableReferences[var_it->second] < 2) {
             const char *varName = var_it->first.c_str();
             int varRef = variableReferences[var_it->second];
-            ERROR("Variable $%s is referenced %d times!\n", varName, varRef);
+            if (strcmp(varName, "_") != 0) {
+                ERROR("Variable $%s is referenced %d times!\n", varName, varRef);
+            }
         }
     }
     if (av_parent) {

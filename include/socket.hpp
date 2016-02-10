@@ -21,7 +21,7 @@
 #ifndef __SIPP_SOCKET_H__
 #define __SIPP_SOCKET_H__
 
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 #include "sslcommon.h"
 
 enum ssl_init_status {
@@ -29,7 +29,7 @@ enum ssl_init_status {
     SSL_INIT_ERROR   /* 1   Unspecified error    */
 };
 
-extern  SSL_CTX             *sip_trp_ssl_ctx;
+extern  SSL_CTX  *sip_trp_ssl_ctx;
 extern  SSL_CTX  *sip_trp_ssl_ctx_client;
 
 const char *sip_tls_error_string(SSL *ssl, int size);
@@ -49,8 +49,6 @@ struct sipp_socket *sipp_allocate_socket(bool use_ipv6, int transport, int fd, i
 void setup_ctrl_socket();
 void setup_stdin_socket();
 
-char * get_inet_address(struct sockaddr_storage * addr);
-
 int handle_ctrl_socket();
 void handle_stdin_socket();
 void process_message(struct sipp_socket *socket, char *msg, ssize_t msg_size, struct sockaddr_storage *src);
@@ -62,7 +60,7 @@ void buffer_write(struct sipp_socket *socket, const char *buffer, size_t len, st
 /********************** Network Interfaces ********************/
 
 int send_message(int s, void ** comp_state, char * msg);
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 int send_message_tls(SSL *s, void ** comp_state, char * msg);
 #endif
 
@@ -93,17 +91,17 @@ struct socketbuf {
 struct sipp_socket {
     int  ss_count; /* How many users are there of this socket? */
 
-    int ss_transport; /* T_TCP, T_UDP, or T_TLS. */
+    int ss_transport;   /* T_TCP, T_UDP, or T_TLS. */
     bool ss_ipv6;
-    bool ss_control; /* Is this a control socket? */
+    bool ss_control;    /* Is this a control socket? */
     bool ss_call_socket; /* Is this a call socket? */
     bool ss_changed_dest; /* Has the destination changed from default. */
 
-    int ss_fd;	/* The underlying file descriptor for this socket. */
+    int ss_fd;          /* The underlying file descriptor for this socket. */
     void *ss_comp_state; /* The compression state. */
-#ifdef _USE_OPENSSL
-    SSL *ss_ssl;	/* The underlying SSL descriptor for this socket. */
-    BIO *ss_bio;	/* The underlying BIO descriptor for this socket. */
+#ifdef USE_OPENSSL
+    SSL *ss_ssl;        /* The underlying SSL descriptor for this socket. */
+    BIO *ss_bio;        /* The underlying BIO descriptor for this socket. */
 #endif
     struct sockaddr_storage ss_remote_sockaddr; /* Who we are talking to. */
     struct sockaddr_storage ss_dest; /* Who we are talking to. */
@@ -114,7 +112,7 @@ struct sipp_socket {
     bool ss_invalid; /* Has this socket been closed remotely? */
 
     struct socketbuf *ss_in; /* Buffered input. */
-    size_t ss_msglen;	/* Is there a complete SIP message waiting, and if so how big? */
+    size_t ss_msglen;        /* Is there a complete SIP message waiting, and if so how big? */
     struct socketbuf *ss_out; /* Buffered output. */
 #ifdef USE_SCTP
     int sctpstate;
