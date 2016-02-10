@@ -80,23 +80,12 @@
 #include "stat.hpp"
 #include "actions.hpp"
 #include "infile.hpp"
-#include "opentask.hpp"
+#include "call_generation_task.hpp"
 #include "reporttask.hpp"
 #include "watchdog.hpp"
 /* Open SSL stuff */
 #ifdef _USE_OPENSSL
 #include "sslcommon.h"
-#endif
-
-
-#ifndef __CYGWIN
-#ifndef FD_SETSIZE
-#define FD_SETSIZE 65000
-#endif
-#else
-#ifndef FD_SETSIZE
-#define FD_SETSIZE 1024
-#endif
 #endif
 
 /*
@@ -158,7 +147,7 @@
 #define MAX_PATH                   250
 
 #define MAX_PEER_SIZE              4096  /* 3pcc extended mode: max size of peer names */
-#define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which 
+#define MAX_LOCAL_TWIN_SOCKETS     10    /*3pcc extended mode:max number of peers from which
 cmd messages are received */
 
 /******************** Default parameters ***********************/
@@ -265,7 +254,7 @@ extern char               control_ip[40];
 extern int                control_port            _DEFVAL(0);
 extern int                buff_size               _DEFVAL(65535);
 extern int                tcp_readsize            _DEFVAL(65535);
-#ifdef PCAPPLAY
+#if defined(PCAPPLAY) || defined(RTP_STREAM)
 extern int                hasMedia                _DEFVAL(0);
 #endif
 #ifdef RTP_STREAM

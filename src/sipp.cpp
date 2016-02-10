@@ -1245,7 +1245,7 @@ int main(int argc, char *argv[])
                 }
                 exit(EXIT_OTHER);
             case SIPP_OPTION_VERSION:
-                printf("\n SIPp v3.4.0"
+                printf("\n SIPp v3.4.1"
 #ifdef _USE_OPENSSL
                        "-TLS"
 #endif
@@ -1849,42 +1849,24 @@ int main(int argc, char *argv[])
                                       report_freq_dumpRtt);
     }
 
-    if ((maxSocketPresent) && (max_multi_socket > FD_SETSIZE) ) {
-        L_maxSocketPresent = 1;
-    }
-
-    /* Initialization:  boost open file limit to the max (AgM)*/
+    // Check the soft limit on the number of open files,
+    // error out if this does not allow us to open the
+    // required number of signalling channels, and warn
+    // if this may not allow enough media channels.
     if (!skip_rlimit) {
         struct rlimit rlimit;
+        int max_sockets_needed = multisocket ? max_multi_socket : 1; 
 
         if (getrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
             ERROR_NO("getrlimit error");
         }
 
-        if (rlimit.rlim_max >
-#ifndef __CYGWIN
-                ((L_maxSocketPresent) ?  (unsigned int)max_multi_socket : FD_SETSIZE)
-#else
-                FD_SETSIZE
-#endif
-           ) {
-            fprintf (stderr, "Warning: open file limit > FD_SETSIZE; "
-                     "limiting max. # of open files to FD_SETSIZE = %d\n",
-                     FD_SETSIZE);
-
-            rlimit.rlim_max =
-#ifndef __CYGWIN
-                (L_maxSocketPresent) ?  (unsigned int)max_multi_socket+min_socket : FD_SETSIZE ;
-#else
-
-                FD_SETSIZE;
-#endif
+        if (max_sockets_needed > rlimit.rlim_cur) {
+            ERROR("Maximum number of open sockets (%d) should be less than the maximum number of open files (%d). Tune this with the `ulimit` command or the -max_socket option", max_sockets_needed, rlimit.rlim_cur);
         }
 
-        rlimit.rlim_cur = rlimit.rlim_max;
-        if (setrlimit (RLIMIT_NOFILE, &rlimit) < 0) {
-            ERROR("Unable to increase the open file limit to FD_SETSIZE = %d",
-                  FD_SETSIZE);
+        if ((open_calls_allowed + max_sockets_needed) > rlimit.rlim_cur) {
+            WARNING("Maximum number of open sockets (%d) plus number of open calls (%d) should be less than the maximum number of open files (%d) to allow for media support. Tune this with the `ulimit` command, the -l option or the -max_socket option", max_sockets_needed, open_calls_allowed, rlimit.rlim_cur);
         }
     }
 
@@ -1975,8 +1957,8 @@ int main(int argc, char *argv[])
     /* Setting the rate and its dependant params (open_calls_allowed) */
     /* If we are a client, then create the task to open new calls. */
     if (creationMode == MODE_CLIENT) {
-        opentask::initialize();
-        opentask::set_rate(rate);
+        CallGenerationTask::initialize();
+        CallGenerationTask::set_rate(rate);
     }
 
 #ifdef HAVE_EPOLL

@@ -1,12 +1,12 @@
 # ======================== initialization ===============================
 
-AC_INIT([SIPp], [3.4.0], [sipp-users@lists.sourceforge.net], [sipp])
+AC_INIT([SIPp], [3.4.1], [sipp-users@lists.sourceforge.net], [sipp])
 
 AC_CANONICAL_TARGET
 
 AC_CONFIG_SRCDIR([src/sipp.cpp])
 AC_CONFIG_HEADERS([include/config.h])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 
 AC_ARG_WITH([openssl],AC_HELP_STRING([--with-openssl], [build with OpenSSL support]), [openssl="$withval"],[openssl="no"])
 AC_ARG_WITH([pcap],AC_HELP_STRING([--with-pcap], [build with pcap support]), [pcap="$withval"],[pcap="no"])

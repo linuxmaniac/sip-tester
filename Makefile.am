@@ -50,7 +50,7 @@ common_incl = include/comp.h \
 	        include/md5.h \
 	        include/message.hpp \
 	        include/milenage.h \
-	        include/opentask.hpp \
+	        include/call_generation_task.hpp \
 	        include/reporttask.hpp \
 	        include/rijndael.h \
 	        include/scenario.hpp \
@@ -67,10 +67,11 @@ common_incl = include/comp.h \
 	        include/xp_parser.h \
 	        include/actions.hpp \
 	        include/call.hpp \
+	        include/auth.hpp \
 	        include/deadcall.hpp
 
 common_SOURCES = src/actions.cpp \
-	       src/auth.c \
+	       src/auth.cpp \
 	       src/comp.c \
 	       src/call.cpp \
 	       src/deadcall.cpp \
@@ -80,7 +81,7 @@ common_SOURCES = src/actions.cpp \
 	       src/md5.c \
 	       src/message.cpp \
 	       src/milenage.c \
-	       src/opentask.cpp \
+	       src/call_generation_task.cpp \
 	       src/reporttask.cpp \
 	       src/rijndael.c \
 	       src/scenario.cpp \
