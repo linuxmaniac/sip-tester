@@ -15,7 +15,7 @@
  *
  *  Author : Richard GAYRAUD - 04 Nov 2003
  *           From Hewlett Packard Company.
- *	     Charles P. Wright from IBM Research
+ *           Charles P. Wright from IBM Research
  *           Andy Aicken
  */
 
@@ -29,7 +29,7 @@
 #include <string.h>
 #include "scenario.hpp"
 #include "stat.hpp"
-#ifdef _USE_OPENSSL
+#ifdef USE_OPENSSL
 #include "sslcommon.h"
 #endif
 #ifdef PCAPPLAY
@@ -52,8 +52,8 @@
 #define SIP_TRANSACTION_TIMEOUT 32000
 
 /* Retransmission check methods. */
-#define RTCHECK_FULL	1
-#define RTCHECK_LOOSE	2
+#define RTCHECK_FULL    1
+#define RTCHECK_LOOSE   2
 
 
 struct txnInstanceInfo {
@@ -127,16 +127,16 @@ private:
 
     unsigned int   tdm_map_number;
 
-    int		msg_index;
-    int		zombie;
-    char *    realloc_ptr;
+    int            msg_index;
+    int            zombie;
+    char *         realloc_ptr;
 
     /* Last message sent from scenario step (retransmitions do not
      * change this index. Only message sent from the scenario
      * are kept in this index.) */
-    int		 last_send_index;
+    int            last_send_index;
     char         * last_send_msg;
-    int        last_send_len;
+    int            last_send_len;
 
     /* How long until sending this message times out. */
     unsigned int   send_timeout;
@@ -144,17 +144,17 @@ private:
     /* Last received message (expected,  not optional, and not
      * retransmitted) and the associated hash. Stills setted until a new
      * scenario steps sends a message */
-    unsigned long    last_recv_hash;
-    int		   last_recv_index;
-    char           * last_recv_msg;
+    unsigned long  last_recv_hash;
+    int            last_recv_index;
+    char         * last_recv_msg;
 
     /* Recv message characteristics when we sent a valid message
      *  (scneario, no retrans) just after a valid reception. This was
      * a cause relationship, so the next time this cookie will be recvd,
      * we will retransmit the same message we sent this time */
     unsigned long  recv_retrans_hash;
-    int   recv_retrans_recv_index;
-    int   recv_retrans_send_index;
+    int            recv_retrans_recv_index;
+    int            recv_retrans_send_index;
     unsigned int   recv_timeout;
 
     /* holds the route set */
@@ -168,6 +168,7 @@ private:
     int hasMediaInformation;
     pthread_t media_thread;
     play_args_t play_args_a;
+    play_args_t play_args_i;
     play_args_t play_args_v;
 #endif
 
@@ -180,7 +181,7 @@ private:
     int            dialog_challenge_type;
 
     unsigned int   next_retrans;
-    int   	 nb_retrans;
+    int            nb_retrans;
     unsigned int   nb_last_delay;
 
     unsigned int   paused_until;
@@ -316,12 +317,12 @@ private:
     char *queued_msg;
 
 
-#ifdef _USE_OPENSSL
-    SSL_CTX   *m_ctx_ssl ;
-    BIO       *m_bio     ;
+#ifdef USE_OPENSSL
+    SSL_CTX *m_ctx_ssl;
+    BIO *m_bio;
 #endif
 
-    int _callDebug(const char *fmt, ...);
+    int _callDebug(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
     char *debugBuffer;
     int debugLength;
 };

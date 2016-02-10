@@ -66,7 +66,7 @@ void abort_all_tasks()
 
 void dump_tasks()
 {
-    WARNING("---- %d Active Tasks ----\n", all_tasks.size());
+    WARNING("---- %zu Active Tasks ----\n", all_tasks.size());
     for (task_list::iterator task_it = all_tasks.begin();
          task_it != all_tasks.end();
          task_it++) {
@@ -169,9 +169,10 @@ task_list *timewheel::task2list(task *task)
   }
 
   assert(wake >= wheel_base);
-  assert(wheel_base <= clock_tick);
-
-  unsigned int time_until_wake = wake - wheel_base;
+  if (wheel_base > clock_tick) {
+      ERROR("wheel_base is %lu, clock_tick is %lu - expected wheel_base to be less than or equal to clock_tick", wheel_base, clock_tick);
+      assert(wheel_base <= clock_tick);
+  }
 
   unsigned int slot_in_first_wheel = wake % LEVEL_ONE_SLOTS;
   unsigned int slot_in_second_wheel = (wake / LEVEL_ONE_SLOTS) % LEVEL_TWO_SLOTS;
@@ -302,4 +303,3 @@ int timewheel::size()
 {
     return count;
 }
-

@@ -15,7 +15,7 @@
  *
  *  Author : Richard GAYRAUD - 04 Nov 2003
  *           From Hewlett Packard Company.
- *	     Charles P. Wright from IBM Research
+ *           Charles P. Wright from IBM Research
  */
 #ifndef __TASK__
 #define __TASK__
@@ -59,7 +59,7 @@ private:
     /* How many task are in this wheel. */
     int count;
 
-    unsigned int wheel_base;
+    unsigned long wheel_base;
 
     /* The actual wheels. This is a variation on having one wheel for
      * seconds, another for minutes and a third for hours - in this

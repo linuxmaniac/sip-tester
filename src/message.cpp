@@ -32,7 +32,7 @@
  *           Jan Andres from Freenet
  *           Ben Evans from Open Cloud
  *           Marc Van Diest from Belgacom
- *	     Stefan Esser
+ *           Stefan Esser
  *           Andy Aicken
  */
 
@@ -87,10 +87,25 @@ struct KeywordMap SimpleKeywords[] = {
     {"users", E_Message_Users },
     {"userid", E_Message_UserID },
     {"timestamp", E_Message_Timestamp },
+    {"date", E_Message_Date },
     {"sipp_version", E_Message_SippVersion },
 };
 
 #define KEYWORD_SIZE 256
+
+static char* quoted_strchr(const char* s, int c)
+{
+    const char* p;
+
+    for (p = s; *p && *p != c; p++) {
+        if (*p == '"') {
+            p++;
+            p += strcspn(p, "\"");
+        }
+    }
+
+    return *p == c ? const_cast<char*>(p) : NULL;
+}
 
 SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool skip_sanity)
 {
@@ -108,7 +123,6 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
     this->msg_scenario = msg_scenario;
 
     dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
-    literalLen = 0;
 
     current_line[0] = '\0';
     *dest = 0;
@@ -169,7 +183,6 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
             }
 
             dest = literal = (char *)malloc(strlen(src) + num_cr + 1);
-            literalLen = 0;
             *dest = '\0';
 
             /* Now lets determine which keyword we have. */
@@ -181,36 +194,8 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
             char keyword [KEYWORD_SIZE+1];
             src++;
 
-            /* Like strchr, but don't count things in quotes. */
-            for(tsrc = src; *tsrc; tsrc++) {
-                if (*tsrc == '\"') {
-                    do {
-                        tsrc++;
-                    } while(*tsrc && *tsrc != '\"');
-                    if (!*tsrc) {
-                        break;
-                    }
-                }
-                if (*tsrc == '[')
-                    break;
-            }
-            if (*tsrc != '[') {
-                tsrc = NULL;
-            }
-
-            /* Like strchr, but don't count things in quotes. */
-            for(key = src; *key; key++) {
-                if (*key == '\"') {
-                    do {
-                        key++;
-                    } while(*key && *key != '\"');
-                }
-                if (*key == ']')
-                    break;
-            }
-            if (*key != ']') {
-                key = NULL;
-            }
+            tsrc = quoted_strchr(src, '[');
+            key = quoted_strchr(src, ']');
 
             if ((tsrc) && (tsrc<key)) {
                 memcpy(keyword, src-1,  tsrc - src + 1);
@@ -335,7 +320,7 @@ SendingMessage::SendingMessage(scenario *msg_scenario, char *const_src, bool ski
                 parseAuthenticationKeyword(msg_scenario, newcomp, keyword);
             }
 #ifndef PCAPPLAY
-       else if(!strcmp(keyword, "auto_media_port")) {
+            else if(!strcmp(keyword, "auto_media_port")) {
                 ERROR("The %s keyword requires PCAPPLAY.\n", keyword);
             }
 #endif
@@ -523,11 +508,9 @@ void SendingMessage::getKeywordParam(char * src, const char * param, char * outp
         if ((*key == '0') && (*(key+1) == 'x')) {
             key += 2;
             getHexStringParam(output, key, &len);
-            key += len * 2;
         } else if (*key == '\"') {
             key++;
             getQuotedParam(output, key, &len);
-            key += len;
         } else {
             while (*key) {
                 if (((key - src) > KEYWORD_SIZE) || (!(key - src))) {
@@ -560,10 +543,11 @@ void SendingMessage::parseAuthenticationKeyword(scenario *msg_scenario, struct M
     getKeywordParam(keyword, "password=", my_auth_pass);
 
     if(*my_auth_user == '\0') {
-        strcpy(my_auth_user, auth_username ? auth_username : service);
+        strncpy(my_auth_user, auth_username ? auth_username : service,
+                sizeof(my_auth_user) - 1);
     }
     if(*my_auth_pass == '\0') {
-        strcpy(my_auth_pass, auth_password);
+        strncpy(my_auth_pass, auth_password, sizeof(my_auth_pass) - 1);
     }
 
 

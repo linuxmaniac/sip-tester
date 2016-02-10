@@ -4,8 +4,7 @@
 /************************** Trace Files ***********************/
 
 #include <time.h>
-
-#define MAX_PATH                   250
+#include "sipp.hpp"
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define extern
@@ -24,16 +23,15 @@ extern bool   useCallDebugf                       _DEFVAL(0);
 extern bool   useShortMessagef                    _DEFVAL(0);
 extern bool   useScreenf                          _DEFVAL(0);
 extern bool   useLogf                             _DEFVAL(0);
-//extern bool   useTimeoutf                         _DEFVAL(0);
+// extern bool   useTimeoutf                         _DEFVAL(0);
 extern bool   dumpInFile                          _DEFVAL(0);
 extern bool   dumpInRtt                           _DEFVAL(0);
 extern bool   useCountf                           _DEFVAL(0);
-extern char * scenario_file;
 extern char * slave_cfg_file;
 
-extern unsigned long long max_log_size		  _DEFVAL(0);
-extern unsigned long long ringbuffer_size	  _DEFVAL(0);
-extern int    ringbuffer_files			  _DEFVAL(0);
+extern unsigned long long max_log_size            _DEFVAL(0);
+extern unsigned long long ringbuffer_size         _DEFVAL(0);
+extern int    ringbuffer_files                    _DEFVAL(0);
 
 extern char   screen_last_error[32768];
 extern char   screen_logfile[MAX_PATH]            _DEFVAL("");
@@ -66,13 +64,14 @@ void log_off(struct logfile_info *lfi);
 
 #ifdef GLOBALS_FULL_DEFINITION
 #define LOGFILE(name, s, check) \
-	struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0};
+        struct logfile_info name = { s, check, NULL, 0, NULL, "", true, false, 0, 0}
 #else
 #define LOGFILE(name, s, check) \
-	extern struct logfile_info name;
+        extern struct logfile_info name
 #endif
 LOGFILE(calldebug_lfi, "calldebug", true);
 LOGFILE(message_lfi, "messages", true);
+LOGFILE(screen_lfi, "screen", true);
 LOGFILE(shortmessage_lfi, "shortmessages", true);
 LOGFILE(log_lfi, "logs", true);
 LOGFILE(error_lfi, "errors", false);
@@ -81,25 +80,18 @@ void rotate_logfile();
 void rotate_shortmessagef();
 void rotate_errorf();
 void rotate_messagef();
+void rotate_screenf();
 void rotate_calldebugf();
 
 /* Screen/Statistics Printing Functions. */
 void print_statistics(int last);
-void print_count_file(FILE *f, int header);
-void print_error_codes_file(FILE *f);
+void print_count_file(FILE* f, int header);
+void print_error_codes_file(FILE* f);
 
 /* This must go after the GLOBALS_FULL_DEFINITION, because we need the extern keyword. */
-/*#ifdef __cplusplus
-extern "C" {
-#endif
-*/
-    int TRACE_MSG(const char *fmt, ...);
-    int TRACE_CALLDEBUG(const char *fmt, ...);
-    int TRACE_SHORTMSG(const char *fmt, ...);
-    int LOG_MSG(const char *fmt, ...);
-    /*
-#ifdef __cplusplus
-}
-#endif
-*/
+int TRACE_MSG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+int TRACE_CALLDEBUG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+int TRACE_SHORTMSG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+int LOG_MSG(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+
 #endif /* __SIPP_LOGGER_H__ */

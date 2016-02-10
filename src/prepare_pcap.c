@@ -15,10 +15,15 @@
  *
  *  Author : Guillaume TEISSIER from FTR&D 02/02/2006
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <pcap.h>
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
+
 #if defined(__HPUX) || defined(__CYGWIN) || defined(__FreeBSD__)
 #include <netinet/in_systm.h>
 #endif
@@ -28,8 +33,9 @@
 #endif
 #include <string.h>
 
+#include "defines.h"
+#include "endianshim.h"
 #include "prepare_pcap.h"
-#include "screen.hpp"
 
 /* We define our own structures for Ethernet Header and IPv6 Header as they are not available on CYGWIN.
  * We only need the fields, which are necessary to determine the type of the next header.
@@ -37,24 +43,22 @@
  * made available by the platform, as we had no problems to get them on all supported platforms.
  */
 
-typedef struct _ether_hdr {
-    char ether_dst[6];
-    char ether_src[6];
-    u_int16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
-} ether_hdr;
+typedef struct _ether_type_hdr {
+    uint16_t ether_type; /* we only need the type, so we can determine, if the next header is IPv4 or IPv6 */
+} ether_type_hdr;
 
 typedef struct _ipv6_hdr {
     char dontcare[6];
-    u_int8_t nxt_header; /* we only need the next header, so we can determine, if the next header is UDP or not */
+    uint8_t nxt_header; /* we only need the next header, so we can determine, if the next header is UDP or not */
     char dontcare2[33];
 } ipv6_hdr;
 
 
 #ifdef __HPUX
-int check(u_int16_t *buffer, int len)
+int check(uint16_t *buffer, int len)
 {
 #else
-inline int check(u_int16_t *buffer, int len)
+inline int check(uint16_t *buffer, int len)
 {
 #endif
     int sum;
@@ -65,16 +69,16 @@ inline int check(u_int16_t *buffer, int len)
         sum += *buffer++;
 
     if (len & 1) {
-        sum += htons( (*(const u_int8_t *)buffer) << 8);
+        sum += htons((*(const uint8_t*)buffer) << 8);
     }
     return sum;
 }
 
 #ifdef __HPUX
-u_int16_t checksum_carry(int s)
+uint16_t checksum_carry(int s)
 {
 #else
-inline u_int16_t checksum_carry(int s)
+inline uint16_t checksum_carry(int s)
 {
 #endif
     int s_c = (s >> 16) + (s & 0xffff);
@@ -83,78 +87,194 @@ inline u_int16_t checksum_carry(int s)
 
 char errbuf[PCAP_ERRBUF_SIZE];
 
+/* get octet offset to EtherType block in 802.11 frame
+ */
+size_t get_802_11_ethertype_offset(int link, const uint8_t* pktdata)
+{
+    size_t offset = 0;
+    uint8_t frame_type = 0;     /* 2 bits */
+    uint8_t frame_sub_type = 0; /* 4 bits */
+    uint16_t frame_ctl_fld;     /* Frame Control Field */
+
+    /* get RadioTap header length */
+    if (link == DLT_IEEE802_11_RADIO) {
+        uint16_t rdtap_hdr_len = 0;
+        /* http://www.radiotap.org */
+        /* rdtap_version[1], pad[1], rdtap_hdr_len[2], rdtap_flds[4] */
+        memcpy(&rdtap_hdr_len, pktdata + 2, sizeof(rdtap_hdr_len));
+        /* http://radiotap.org */
+        /* all data fields in the radiotap header are to be specified
+         * in little-endian order */
+        rdtap_hdr_len = le16toh(rdtap_hdr_len);
+        offset += rdtap_hdr_len;
+    }
+
+    memcpy(&frame_ctl_fld, pktdata + offset, sizeof(frame_ctl_fld));
+    /* extract frame type and subtype from Frame Control Field */
+    frame_type = frame_sub_type = frame_ctl_fld>>8;
+    frame_type = frame_type>>2 & 0x03;
+    frame_sub_type >>= 4;
+    if (frame_type < 0x02) {
+        /* Control or Management frame, so ignore it and try to get
+         * EtherType from next one */
+        offset = 0;
+    } else if (frame_type == 0x02) {
+        /* only Data frames carry the relevant payload and EtherType */
+        if (frame_sub_type < 0x04
+            || (frame_sub_type > 0x07 && frame_sub_type < 0x0c)) {
+            /* MAC header of a Data frame is at least 24 and at most 36
+             * octets long */
+            size_t mac_hdr_len = 24;
+            uint8_t llc_hdr[8] = { 0x00 };
+            while (mac_hdr_len <= 36) {
+                /* attempt to get Logical-Link Control header */
+                /* dsap[1],ssap[1],ctrl_fld[1],org_code[3],ethertype[2] */
+                memcpy(llc_hdr, pktdata + offset + mac_hdr_len, sizeof(llc_hdr));
+                /* check if Logical-Link Control header */
+                if (llc_hdr[0] == 0xaa && llc_hdr[1] == 0xaa && llc_hdr[2] == 0x03) {
+                    /* get EtherType and convert to host byte-order.
+                     * (reduce by sizeof(eth_type)) */
+                    offset += mac_hdr_len + (sizeof(llc_hdr) - sizeof(uint16_t));
+                    break;
+                }
+                mac_hdr_len++;
+            }
+        } else {
+            /* could be Null Data frame, so ignore it and try to get
+             * EtherType from next one */
+            offset = 0;
+        }
+    } else {
+        ERROR("Unsupported frame type %d", frame_type);
+    }
+    return offset;
+}
+
+/* get octet offset to EtherType block
+ */
+size_t get_ethertype_offset(int link, const uint8_t* pktdata)
+{
+    int is_le_encoded = 0; /* little endian */
+    uint16_t eth_type = 0;
+    size_t offset = 0;
+
+    /* http://www.tcpdump.org/linktypes.html */
+    if (link == DLT_EN10MB) {
+        /* srcmac[6], dstmac[6], ethertype[2] */
+        offset = 12;
+    } else if (link == DLT_LINUX_SLL) {
+        /* http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html */
+        /* pkttype[2], arphrd_type[2], lladdrlen[2], lladdr[8], ethertype[2] */
+        offset = 14;
+    } else if (link == DLT_IEEE802_11
+               || link == DLT_IEEE802_11_RADIO) {
+        offset = get_802_11_ethertype_offset(link, pktdata);
+        /* multi-octet fields in 802.11 frame are to be specified in
+         * little-endian order */
+        is_le_encoded = 1;
+    } else {
+        ERROR("Unsupported link-type %d", link);
+    }
+
+    if (offset) {
+        /* get EtherType and convert to host byte order */
+        memcpy(&eth_type, pktdata + offset, sizeof(eth_type));
+        eth_type = (is_le_encoded) ? le16toh(eth_type) : ntohs(eth_type);
+        if (eth_type != 0x0800 && eth_type != 0x86dd) {
+            /* check if Ethernet 802.1Q VLAN */
+            if (eth_type == 0x8100) {
+                /* vlan_tag[4] */
+                offset += 4;
+            } else {
+                ERROR("Unsupported ethernet type %d", eth_type);
+            }
+        }
+    }
+    return offset;
+}
+
 /* prepare a pcap file
  */
 int prepare_pkts(char *file, pcap_pkts *pkts)
 {
-    pcap_t *pcap;
-    struct pcap_pkthdr *pkthdr = NULL;
-    u_char *pktdata = NULL;
+    pcap_t* pcap;
+#ifdef HAVE_PCAP_NEXT_EX
+    struct pcap_pkthdr* pkthdr = NULL;
+#else
+    struct pcap_pkthdr pkthdr_storage;
+    struct pcap_pkthdr* pkthdr = &pkthdr_storage;
+#endif
+    const uint8_t* pktdata = NULL;
     int n_pkts = 0;
-    u_long max_length = 0;
-    u_int16_t base = 0xffff;
-    u_long pktlen;
-    pcap_pkt *pkt_index;
-    ether_hdr *ethhdr;
-    struct iphdr *iphdr;
-    ipv6_hdr *ip6hdr;
-    struct udphdr *udphdr;
+    uint64_t max_length = 0;
+    size_t ether_type_offset = 0;
+    uint16_t base = 0xffff;
+    uint64_t pktlen;
+    pcap_pkt* pkt_index;
+    ether_type_hdr* ethhdr;
+
+    struct iphdr* iphdr;
+    ipv6_hdr* ip6hdr;
+    struct udphdr* udphdr;
 
     pkts->pkts = NULL;
 
     pcap = pcap_open_offline(file, errbuf);
     if (!pcap)
-        ERROR("Can't open PCAP file '%s'", file);
+        ERROR_NO("Can't open PCAP file '%s'", file);
+#ifdef HAVE_PCAP_NEXT_EX
+    while (pcap_next_ex(pcap, &pkthdr, &pktdata) == 1) {
+#else
+    while ((pktdata = pcap_next(pcap, pkthdr)) != NULL) {
+#endif
+        if (pkthdr->len != pkthdr->caplen) {
+            ERROR("You got truncated packets. Please create a new dump with -s0");
+        }
 
-#if HAVE_PCAP_NEXT_EX
-    while (pcap_next_ex (pcap, &pkthdr, (const u_char **) &pktdata) == 1) {
-#else
-#ifdef __HPUX
-    pkthdr = (pcap_pkthdr *) malloc (sizeof (*pkthdr));
-#else
-    pkthdr = malloc (sizeof (*pkthdr));
-#endif
-    if (!pkthdr)
-        ERROR("Can't allocate memory for pcap pkthdr");
-    while ((pktdata = (u_char *) pcap_next (pcap, pkthdr)) != NULL) {
-#endif
-        ethhdr = (ether_hdr *)pktdata;
+        /* Determine offset from packet to ether type only once. */
+        if (!ether_type_offset) {
+            int datalink = pcap_datalink(pcap);
+            ether_type_offset = get_ethertype_offset(datalink, pktdata);
+        }
+
+        ethhdr = (ether_type_hdr *)(pktdata + ether_type_offset);
         if (ntohs(ethhdr->ether_type) != 0x0800 /* IPv4 */
                 && ntohs(ethhdr->ether_type) != 0x86dd) { /* IPv6 */
-            fprintf(stderr, "Ignoring non IP{4,6} packet!\n");
+            fprintf(stderr, "Ignoring non IP{4,6} packet, got ether_type %hu!\n",
+                    ntohs(ethhdr->ether_type));
             continue;
         }
-        iphdr = (struct iphdr *)((char *)ethhdr + sizeof(*ethhdr));
+        iphdr = (struct iphdr*)((char*)ethhdr + sizeof(*ethhdr));
         if (iphdr && iphdr->version == 6) {
-            //ipv6
-            pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
-            ip6hdr = (ipv6_hdr *)(void *) iphdr;
+            /* ipv6 */
+            pktlen = (uint64_t)pkthdr->len - sizeof(*ethhdr) - sizeof(*ip6hdr);
+            ip6hdr = (ipv6_hdr*)(void*)iphdr;
             if (ip6hdr->nxt_header != IPPROTO_UDP) {
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
             }
-            udphdr = (struct udphdr *)((char *)ip6hdr + sizeof(*ip6hdr));
+            udphdr = (struct udphdr*)((char*)ip6hdr + sizeof(*ip6hdr));
         } else {
-            //ipv4
+            /* ipv4 */
             if (iphdr->protocol != IPPROTO_UDP) {
                 fprintf(stderr, "prepare_pcap.c: Ignoring non UDP packet!\n");
                 continue;
             }
 #if defined(__DARWIN) || defined(__CYGWIN) || defined(__FreeBSD__)
-            udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2) + 4);
-            pktlen = (u_long)(ntohs(udphdr->uh_ulen));
+            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2) + 4);
+            pktlen = (uint64_t)(ntohs(udphdr->uh_ulen));
 #elif defined ( __HPUX)
-            udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
-            pktlen = (u_long) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
+            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2));
+            pktlen = (uint64_t) pkthdr->len - sizeof(*ethhdr) - sizeof(*iphdr);
 #else
-            udphdr = (struct udphdr *)((char *)iphdr + (iphdr->ihl << 2));
-            pktlen = (u_long)(ntohs(udphdr->len));
+            udphdr = (struct udphdr*)((char*)iphdr + (iphdr->ihl << 2));
+            pktlen = (uint64_t)(ntohs(udphdr->len));
 #endif
         }
         if (pktlen > PCAP_MAXPACKET) {
             ERROR("Packet size is too big! Recompile with bigger PCAP_MAXPACKET in prepare_pcap.h");
         }
-        pkts->pkts = (pcap_pkt *) realloc(pkts->pkts, sizeof(*(pkts->pkts)) * (n_pkts + 1));
+        pkts->pkts = (pcap_pkt *)realloc(pkts->pkts, sizeof(*(pkts->pkts)) * (n_pkts + 1));
         if (!pkts->pkts)
             ERROR("Can't re-allocate memory for pcap pkt");
         pkt_index = pkts->pkts + n_pkts;
@@ -171,13 +291,13 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
         udphdr->check = 0;
 #endif
 
-        // compute a partial udp checksum
-        // not including port that will be changed
-        // when sending RTP
+        /* compute a partial udp checksum */
+        /* not including port that will be changed */
+        /* when sending RTP */
 #if defined(__HPUX) || defined(__DARWIN) || (defined __CYGWIN) || defined(__FreeBSD__)
-        pkt_index->partial_check = check((u_int16_t *) &udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check((uint16_t*)&udphdr->uh_ulen, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #else
-        pkt_index->partial_check = check((u_int16_t *) &udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
+        pkt_index->partial_check = check((uint16_t*)&udphdr->len, pktlen - 4) + ntohs(IPPROTO_UDP + pktlen);
 #endif
         if (max_length < pktlen)
             max_length = pktlen;
@@ -198,4 +318,3 @@ int prepare_pkts(char *file, pcap_pkts *pkts)
 
     return 0;
 }
-

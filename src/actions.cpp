@@ -27,6 +27,7 @@
 #include "prepare_pcap.h"
 #endif
 
+
 static const char* strIntCmd(CAction::T_IntCmdType type)
 {
     switch (type) {
@@ -147,7 +148,7 @@ void CAction::afficheInfo()
     } else if (M_action == E_AT_VAR_TO_DOUBLE) {
         printf("Type[%d] - toDouble varId[%s]", M_action, display_scenario->allocVars->getName(M_varId));
 #ifdef PCAPPLAY
-    } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
+    } else if ((M_action == E_AT_PLAY_PCAP_AUDIO) || (M_action == E_AT_PLAY_PCAP_IMAGE) || (M_action == E_AT_PLAY_PCAP_VIDEO)) {
         printf("Type[%d] - file[%s]", M_action, M_pcapArgs->file);
 #endif
 
@@ -199,9 +200,9 @@ bool           CAction::getHeadersOnly()
 {
     return(M_headersOnly);
 }
-int            CAction::getOccurence()
+int            CAction::getOccurrence()
 {
-    return(M_occurence);
+    return(M_occurrence);
 }
 int            CAction::getVarId()
 {
@@ -277,9 +278,9 @@ void CAction::setCaseIndep    (bool           P_value)
 {
     M_caseIndep    = P_value;
 }
-void CAction::setOccurence   (int            P_value)
+void CAction::setOccurrence   (int            P_value)
 {
-    M_occurence    = P_value;
+    M_occurrence    = P_value;
 }
 void CAction::setHeadersOnly  (bool           P_value)
 {
@@ -345,7 +346,7 @@ int  CAction::getNbSubVarId ()
 }
 
 
-void CAction::setLookingChar  (char*          P_value)
+void CAction::setLookingChar(const char* P_value)
 {
     if(M_lookingChar != NULL) {
         delete [] M_lookingChar;
@@ -373,14 +374,15 @@ void CAction::setMessage  (char*          P_value, int n)
     }
 }
 
-void CAction::setRegExp(char *P_value)
+void CAction::setRegExp(const char *P_value)
 {
     int errorCode;
 
+    free(M_regularExpression);
     M_regularExpression = strdup(P_value);
     M_regExpSet = true;
 
-    errorCode = regcomp(&(M_internalRegExp), M_regularExpression, REGEXP_PARAMS);
+    errorCode = regcomp(&M_internalRegExp, P_value, REGEXP_PARAMS);
     if(errorCode != 0) {
         char buffer[MAX_HEADER_LEN];
         regerror(errorCode, &M_internalRegExp, buffer, sizeof(buffer));
@@ -396,7 +398,7 @@ char *CAction::getRegularExpression()
     return M_regularExpression;
 }
 
-int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
+int CAction::executeRegExp(const char* P_string, VariableTable *P_callVarTable)
 {
     regmatch_t pmatch[10];
     int error;
@@ -413,7 +415,7 @@ int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
 
     memset((void*)pmatch, 0, sizeof(regmatch_t)*10);
 
-    error = regexec(&(M_internalRegExp), P_string, 10, pmatch, REGEXP_PARAMS);
+    error = regexec(&M_internalRegExp, P_string, 10, pmatch, REGEXP_PARAMS);
     if ( error == 0) {
         CCallVariable* L_callVar = P_callVarTable->getVar(getVarId());
 
@@ -422,6 +424,7 @@ int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
 
             setSubString(&result, P_string, pmatch[i].rm_so, pmatch[i].rm_eo);
             L_callVar->setMatchingValue(result);
+            nbOfMatch++;
 
             if (i == getNbSubVarId())
                 break ;
@@ -432,7 +435,7 @@ int CAction::executeRegExp(char* P_string, VariableTable *P_callVarTable)
     return(nbOfMatch);
 }
 
-void CAction::setSubString(char** P_target, char* P_source, int P_start, int P_stop)
+void CAction::setSubString(char** P_target, const char* P_source, int P_start, int P_stop)
 {
     int sizeOf;
 
@@ -465,7 +468,7 @@ void CAction::setPcapArgs (pcap_pkts  *  P_value)
     }
 }
 
-void CAction::setPcapArgs (char*        P_value)
+void CAction::setPcapArgs(const char* P_value)
 {
     if(M_pcapArgs != NULL) {
         free(M_pcapArgs);
@@ -485,14 +488,14 @@ void CAction::setPcapArgs (char*        P_value)
 #endif
 
 #ifdef RTP_STREAM
-void CAction::setRTPStreamActInfo (char      *P_value)
+void CAction::setRTPStreamActInfo(const char* P_value)
 {
-  char	*ParamString;
-  char	*NextComma;
+  char *ParamString;
+  char *NextComma;
 
   if (strlen(P_value)>=sizeof (M_rtpstream_actinfo.filename)) {
-    ERROR("Filename %s is too long, maximum supported length %d\n",P_value,
-          sizeof (M_rtpstream_actinfo.filename)-1);
+    ERROR("Filename %s is too long, maximum supported length %zu\n", P_value,
+          sizeof(M_rtpstream_actinfo.filename) - 1);
   }
   strcpy (M_rtpstream_actinfo.filename,P_value);
   ParamString= strchr(M_rtpstream_actinfo.filename,',');
@@ -505,7 +508,7 @@ void CAction::setRTPStreamActInfo (char      *P_value)
     NextComma= strchr (ParamString,',');
     if (NextComma) {
       *(NextComma++)= 0;
-    }  
+    }
     M_rtpstream_actinfo.loop_count= atoi(ParamString);
     ParamString= NextComma;
   }
@@ -516,9 +519,8 @@ void CAction::setRTPStreamActInfo (char      *P_value)
     NextComma= strchr (ParamString,',');
     if (NextComma) {
       *(NextComma++)= 0;
-    }  
+    }
     M_rtpstream_actinfo.payload_type= atoi(ParamString);
-    ParamString= NextComma;
   }
 
   /* Setup based on what we know of payload types */
@@ -553,7 +555,7 @@ void CAction::setRTPStreamActInfo (char      *P_value)
 void CAction::setRTPStreamActInfo (rtpstream_actinfo_t *P_value)
 {
   /* At this stage the entire rtpstream action info structure can simply be */
-  /* copied. No members need to be individually duplicated/processed.       */ 
+  /* copied. No members need to be individually duplicated/processed.       */
   memcpy (&M_rtpstream_actinfo,P_value,sizeof(M_rtpstream_actinfo));
 }
 #endif
@@ -586,7 +588,7 @@ void CAction::setAction(CAction P_action)
     setCheckIt      ( P_action.getCheckIt()      );
     setCheckItInverse      ( P_action.getCheckItInverse()      );
     setCaseIndep    ( P_action.getCaseIndep()    );
-    setOccurence    ( P_action.getOccurence()   );
+    setOccurrence   ( P_action.getOccurrence()   );
     setHeadersOnly  ( P_action.getHeadersOnly()  );
     for (L_i = 0; L_i < MAX_ACTION_MESSAGE; L_i++) {
         setMessage(P_action.M_message_str[L_i], L_i);
@@ -617,7 +619,7 @@ CAction::CAction(scenario *scenario)
     M_lookingPlace = E_LP_MSG;
     M_lookingChar  = NULL;
     M_caseIndep    = false;
-    M_occurence    = 1;
+    M_occurrence   = 1;
     M_headersOnly  = true;
     for (int i = 0; i < MAX_ACTION_MESSAGE; i++) {
         M_message[i]   = NULL;
@@ -632,7 +634,7 @@ CAction::CAction(scenario *scenario)
 #endif
 
 #ifdef RTP_STREAM
-  memset (&M_rtpstream_actinfo,0,sizeof(M_rtpstream_actinfo));
+    memset(&M_rtpstream_actinfo, 0, sizeof(M_rtpstream_actinfo));
 #endif
 
     M_scenario     = scenario;
@@ -661,7 +663,7 @@ CAction::~CAction()
     free(M_stringValue);
 #ifdef PCAPPLAY
     if (M_pcapArgs != NULL) {
-        free(M_pcapArgs);
+        free_pcaps(M_pcapArgs);
         M_pcapArgs = NULL;
     }
 #endif
@@ -740,3 +742,55 @@ CActions::~CActions()
     delete [] M_actionList;
     M_actionList = NULL;
 }
+
+#ifdef GTEST
+#include "gtest/gtest.h"
+
+TEST(actions, MatchingRegexp) {
+    AllocVariableTable vt(NULL);
+    int id = vt.find("1", true);
+    int sub1_id = vt.find("2", true);
+    int sub2_id = vt.find("3", true);
+    int sub3_id = vt.find("4", true);
+    int sub4_id = vt.find("5", true);
+    CAction re(NULL);
+    re.setVarId(id);
+    re.setNbSubVarId(4);
+    re.setSubVarId(sub1_id);
+    re.setSubVarId(sub2_id);
+    re.setSubVarId(sub3_id);
+    re.setSubVarId(sub4_id);
+    re.setRegExp("(.+)(o) (.+)(d)");
+    int results = re.executeRegExp("hello world", &vt);
+
+    ASSERT_EQ(5, results);
+    ASSERT_STREQ("hello world", vt.getVar(id)->getString());
+    ASSERT_STREQ("hell", vt.getVar(sub1_id)->getString());
+    ASSERT_STREQ("o", vt.getVar(sub2_id)->getString());
+    ASSERT_STREQ("worl", vt.getVar(sub3_id)->getString());
+    ASSERT_STREQ("d", vt.getVar(sub4_id)->getString());
+}
+
+TEST(actions, NonMatchingRegexp) {
+    AllocVariableTable vt(NULL);
+    int id = vt.find("1", true);
+    int sub1_id = vt.find("2", true);
+    int sub2_id = vt.find("3", true);
+    int sub3_id = vt.find("4", true);
+    int sub4_id = vt.find("5", true);
+    CAction re(NULL);
+    re.setVarId(id);
+    re.setNbSubVarId(4);
+    re.setSubVarId(sub1_id);
+    re.setSubVarId(sub2_id);
+    re.setSubVarId(sub3_id);
+    re.setSubVarId(sub4_id);
+    re.setRegExp("(.+)(o) (.+)(d)");
+    int results = re.executeRegExp("", &vt);
+
+    ASSERT_EQ(0, results);
+    ASSERT_STREQ("", vt.getVar(id)->getString());
+    ASSERT_STREQ("", vt.getVar(sub1_id)->getString());
+}
+
+#endif

@@ -32,7 +32,7 @@
  *           Charles P Wright from IBM Research
  *           Martin Van Leeuwen
  *           Andy Aicken
- *	     Michael Hirschbichler
+ *           Michael Hirschbichler
  */
 
 #include <stdarg.h>
@@ -212,7 +212,7 @@ void print_variable_list()
     }
     if(!found) {
         printed++;
-        printf("=> No action found on any messages"SIPP_ENDL);
+        printf("=> No action found on any messages" SIPP_ENDL);
     }
 
     printf(SIPP_ENDL);
@@ -228,12 +228,12 @@ void print_statistics(int last)
     extern int command_mode;
     extern char *command_buffer;
 
-    if(backgroundMode == false && display_scenario) {
-        if(!last) {
+    if (backgroundMode == false && display_scenario) {
+        if (use_curses && !last) {
             screen_clear();
         }
 
-        if(first) {
+        if (use_curses && first) {
             first = 0;
             printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
                    "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
@@ -813,8 +813,8 @@ void print_error_codes_file(FILE *f)
 
     // Print comma-separated list of all error codes seen since the last time this function was called
     for (; main_scenario->stats->error_codes.size() != 0;) {
-	    fprintf(f, "%d,", main_scenario->stats->error_codes[main_scenario->stats->error_codes.size() -1]);
-	    main_scenario->stats->error_codes.pop_back();
+        fprintf(f, "%d,", main_scenario->stats->error_codes[main_scenario->stats->error_codes.size() - 1]);
+        main_scenario->stats->error_codes.pop_back();
     }
 
     fprintf(f, "\n");
@@ -828,32 +828,32 @@ void print_screens(void)
     int oldRepartition = currentRepartitionToDisplay;
 
     currentScreenToDisplay = DISPLAY_SCENARIO_SCREEN;
-    print_header_line(   screenf);
-    print_stats_in_file( screenf);
-    print_bottom_line(   screenf, NOTLAST);
+    print_header_line(   screen_lfi.fptr);
+    print_stats_in_file( screen_lfi.fptr);
+    print_bottom_line(   screen_lfi.fptr, NOTLAST);
 
     currentScreenToDisplay = DISPLAY_STAT_SCREEN;
-    print_header_line(   screenf);
-    display_scenario->stats->displayStat(screenf);
-    print_bottom_line(   screenf, NOTLAST);
+    print_header_line(   screen_lfi.fptr);
+    display_scenario->stats->displayStat(screen_lfi.fptr);
+    print_bottom_line(   screen_lfi.fptr, NOTLAST);
 
     currentScreenToDisplay = DISPLAY_REPARTITION_SCREEN;
-    print_header_line(   screenf);
-    display_scenario->stats->displayRepartition(screenf);
-    print_bottom_line(   screenf, NOTLAST);
+    print_header_line(   screen_lfi.fptr);
+    display_scenario->stats->displayRepartition(screen_lfi.fptr);
+    print_bottom_line(   screen_lfi.fptr, NOTLAST);
 
     currentScreenToDisplay = DISPLAY_SECONDARY_REPARTITION_SCREEN;
     for (currentRepartitionToDisplay = 2; currentRepartitionToDisplay <= display_scenario->stats->nRtds(); currentRepartitionToDisplay++) {
-        print_header_line(   screenf);
-        display_scenario->stats->displayRtdRepartition(screenf, currentRepartitionToDisplay);
-        print_bottom_line(   screenf, NOTLAST);
+        print_header_line(   screen_lfi.fptr);
+        display_scenario->stats->displayRtdRepartition(screen_lfi.fptr, currentRepartitionToDisplay);
+        print_bottom_line(   screen_lfi.fptr, NOTLAST);
     }
 
     currentScreenToDisplay = oldScreen;
     currentRepartitionToDisplay = oldRepartition;
 }
 
-void rotatef(struct logfile_info *lfi)
+static void rotatef(struct logfile_info* lfi)
 {
     char L_rotate_file_name [MAX_PATH];
 
@@ -868,9 +868,14 @@ void rotatef(struct logfile_info *lfi)
         /* We need to rotate away an existing file. */
         if (lfi->nfiles == ringbuffer_files) {
             if ((lfi->ftimes)[0].n) {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[0].start, (lfi->ftimes)[0].n);
+                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log",
+                        scenario_file, getpid(), lfi->name,
+                        (unsigned long)(lfi->ftimes)[0].start,
+                        (lfi->ftimes)[0].n);
             } else {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[0].start);
+                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log",
+                        scenario_file, getpid(), lfi->name,
+                        (unsigned long)(lfi->ftimes)[0].start);
             }
             unlink(L_rotate_file_name);
             lfi->nfiles--;
@@ -884,9 +889,14 @@ void rotatef(struct logfile_info *lfi)
                 (lfi->ftimes)[lfi->nfiles].n = (lfi->ftimes)[lfi->nfiles - 1].n + 1;
             }
             if ((lfi->ftimes)[lfi->nfiles].n) {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[lfi->nfiles].start, (lfi->ftimes)[lfi->nfiles].n);
+                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.%d.log",
+                        scenario_file, getpid(), lfi->name,
+                        (unsigned long)(lfi->ftimes)[lfi->nfiles].start,
+                        (lfi->ftimes)[lfi->nfiles].n);
             } else {
-                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log", scenario_file, getpid(), lfi->name, (lfi->ftimes)[lfi->nfiles].start);
+                sprintf(L_rotate_file_name, "%s_%d_%s_%lu.log",
+                        scenario_file, getpid(), lfi->name,
+                        (unsigned long)(lfi->ftimes)[lfi->nfiles].start);
             }
             lfi->nfiles++;
             fflush(lfi->fptr);
@@ -907,6 +917,11 @@ void rotatef(struct logfile_info *lfi)
         /* We can not use the error functions from this function, as we may be rotating the error log itself! */
         ERROR("Unable to create '%s'", lfi->file_name);
     }
+}
+
+void rotate_screenf()
+{
+    rotatef(&screen_lfi);
 }
 
 void rotate_calldebugf()
@@ -943,7 +958,7 @@ extern "C" {
 #endif
  * w
 */
-    int _trace (struct logfile_info *lfi, const char *fmt, va_list ap)
+    static int _trace(struct logfile_info* lfi, const char* fmt, va_list ap)
     {
         int ret = 0;
         if(lfi->fptr) {

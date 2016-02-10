@@ -13,64 +13,34 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- *  Author : Richard GAYRAUD - 04 Nov 2003
- *           Marc LAMBERTON
- *           Olivier JACQUES
- *           Herve PELLAN
- *           David MANSUTTI
- *           Francois-Xavier Kowalski
- *           Gerard Lyonnaz
- *           Francois Draperi (for dynamic_id)
- *           From Hewlett Packard Company.
- *           F. Tarek Rogers
- *           Peter Higginson
- *           Vincent Luba
- *           Shriram Natarajan
- *           Guillaume Teissier from FTR&D
- *           Clement Chen
- *           Wolfgang Beck
- *           Charles P Wright from IBM Research
- *           Martin Van Leeuwen
- *           Andy Aicken
- *	     Michael Hirschbichler
+ *  Author : Rob Day - 11 May 2014
  */
 
 #define GLOBALS_FULL_DEFINITION
-#define NOTLAST 0
-
-#include <dlfcn.h>
 #include "sipp.hpp"
-#include "assert.h"
 
-int main()
-{
-    /* Unit testing function */
-    char ipv6_addr_brackets[] = "[fe80::92a4:deff:fe74:7af5]";
-    char ipv6_addr_port[] = "[fe80::92a4:deff:fe74:7af5]:999";
-    char ipv6_addr[] = "fe80::92a4:deff:fe74:7af5";
-    char ipv4_addr_port[] = "127.0.0.1:999";
-    char ipv4_addr[] = "127.0.0.1";
-    char hostname_port[] = "sipp.sf.net:999";
-    char hostname[] = "sipp.sf.net";
-    int port_result = -1;
-    char host_result[255];
-    char orig_addr[255];
+#include "gtest/gtest.h"
+#include "gmock/gmock.h"
+#include <string.h>
 
-#define TEST_GET_HOST_AND_PORT(VAR, EXPECTED_HOST, EXPECTED_PORT) {\
-    strcpy(host_result,""); \
-    strcpy(orig_addr,VAR); \
-    get_host_and_port(VAR, host_result, &port_result); \
-    if ((strcmp(host_result, EXPECTED_HOST) != 0) || (port_result != EXPECTED_PORT)) \
-    {fprintf(stderr, "get_host_and_port fails for address %s - results are %s and %d, expected %s and %d\n", orig_addr, host_result, port_result, EXPECTED_HOST, EXPECTED_PORT);};\
+namespace testing {
+    std::string FLAGS_gmock_verbose = "verbose";
 }
 
-    TEST_GET_HOST_AND_PORT(ipv6_addr, "fe80::92a4:deff:fe74:7af5", 0)
-    TEST_GET_HOST_AND_PORT(ipv6_addr_brackets, "fe80::92a4:deff:fe74:7af5", 0)
-    TEST_GET_HOST_AND_PORT(ipv6_addr_port, "fe80::92a4:deff:fe74:7af5", 999)
-    TEST_GET_HOST_AND_PORT(ipv4_addr, "127.0.0.1", 0)
-    TEST_GET_HOST_AND_PORT(ipv4_addr_port, "127.0.0.1", 999)
-    TEST_GET_HOST_AND_PORT(hostname, "sipp.sf.net", 0)
-    TEST_GET_HOST_AND_PORT(hostname_port, "sipp.sf.net", 999)
+int main(int argc, char* argv[])
+{
+    globalVariables = new AllocVariableTable(NULL);
+    userVariables = new AllocVariableTable(globalVariables);
+    main_scenario = new scenario(0, 0);
 
-    return 0;
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
+/* Quickfix to fix unittests that depend on sipp_exit availability,
+ * now that sipp_exit has been moved into sipp.cpp which is not
+ * included. */
+void sipp_exit(int rc)
+{
+    exit(rc);
 }
