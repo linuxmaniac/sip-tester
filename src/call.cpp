@@ -50,6 +50,7 @@
 #include "send_packets.h"
 #endif
 #include "sipp.hpp"
+#include "auth.hpp"
 #include "deadcall.hpp"
 
 #define callDebug(args...) do { if (useCallDebugf) { _callDebug( args ); } } while (0)
@@ -701,7 +702,7 @@ call::~call()
         delete m_lineNumber;
     }
     if (userId) {
-        opentask::freeUser(userId);
+        CallGenerationTask::free_user(userId);
     }
 
     if (transactions) {
@@ -1327,10 +1328,18 @@ bool call::next()
 
 bool call::executeMessage(message *curmsg)
 {
-    if(curmsg -> pause_distribution || curmsg->pause_variable != -1) {
+    if (curmsg->pause_distribution || curmsg->pause_variable != -1) {
         unsigned int pause;
         if (curmsg->pause_distribution) {
-            pause  = (int)(curmsg -> pause_distribution -> sample());
+            double actualpause = curmsg->pause_distribution->sample();
+            if (actualpause < 1) {
+                // Protect against distribution samples that give
+                // negative results (and so pause for ~50 hours when
+                // cast to a unsigned int).
+                pause = 0;
+            } else {
+                pause  = (unsigned int)actualpause;
+            };
         } else {
             int varId = curmsg->pause_variable;
             pause = (int) M_callVariableTable->getVar(varId)->getDouble();
@@ -2938,10 +2947,11 @@ bool call::process_incoming(char * msg, struct sockaddr_storage *src)
             return true;
         }
     }
- 
+
 #ifdef RTP_STREAM
   /* Check if message has a SDP in it; and extract media information. */
-  if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp")) {
+  if (!strcmp(get_header_content(msg, (char*)"Content-Type:"),"application/sdp") &&
+          (hasMedia == 1)) {
     extract_rtp_remote_addr(msg);
   }
 #endif
@@ -3656,6 +3666,7 @@ call::T_ActionResult call::executeAction(char * msg, message *curmsg)
 
                 free(username);
                 free(password);
+                free(method);
             }
 
             M_callVariableTable->getVar(currentAction->getVarId())->setBool(result);
@@ -3905,6 +3916,9 @@ void call::extractSubMessage(char * msg, char * matchingString, char* result, bo
 
 void call::getFieldFromInputFile(const char *fileName, int field, SendingMessage *lineMsg, char*& dest)
 {
+    if (m_lineNumber == NULL) {
+        ERROR("Automatic calls (created by -aa, -oocsn or -oocsf) cannot use input files!");
+    }
     if (inFiles.find(fileName) == inFiles.end()) {
         ERROR("Invalid injection file: %s", fileName);
     }
