@@ -1,17 +1,18 @@
 # ======================== initialization ===============================
 
-AC_INIT([SIPp], [3.3], [sipp-users@lists.sourceforge.net], [sipp])
+AC_INIT([SIPp], [3.4.0], [sipp-users@lists.sourceforge.net], [sipp])
 
 AC_CANONICAL_TARGET
 
-AC_CONFIG_SRCDIR([sipp.cpp])
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_SRCDIR([src/sipp.cpp])
+AC_CONFIG_HEADERS([include/config.h])
 AM_INIT_AUTOMAKE([foreign])
 
 AC_ARG_WITH([openssl],AC_HELP_STRING([--with-openssl], [build with OpenSSL support]), [openssl="$withval"],[openssl="no"])
 AC_ARG_WITH([pcap],AC_HELP_STRING([--with-pcap], [build with pcap support]), [pcap="$withval"],[pcap="no"])
-AC_ARG_WITH([unittest],AC_HELP_STRING([--with-unittest], [build with unit testing framework]), [unittest="$withval"],[unittest="no"])
+AC_ARG_WITH([rtpstream],AC_HELP_STRING([--with-rtpstream], [build with RTP streaming support]), [rtp="$withval"],[rtp="yes"])
 AC_ARG_WITH([sctp],AC_HELP_STRING([--with-sctp], [build with SCTP support]), [sctp="$withval"],[sctp="no"])
+AC_ARG_WITH([gsl],AC_HELP_STRING([--with-gsl], [build with GSL (GNU Scientific Library) support]), [gsl="$withval"],[gsl="no"])
 
 # ==================== basic compiler settings ==========================
 
@@ -33,8 +34,9 @@ case "$host" in
 		CPPFLAGS="$CPPFLAGS -D__HPUX"
 		;;
 	*-freebsd*)
-		CFLAGS="$CFLAGS -D__LINUX"
-		CPPFLAGS="$CPPFLAGS -D__LINUX"
+		CFLAGS="$CFLAGS -D__LINUX -I/usr/local/include"
+		CPPFLAGS="$CPPFLAGS -D__LINUX -I/usr/local/include"
+        LDFLAGS="$LDFLAGS -L/usr/local/lib"
 		;;
 	*-sunos*)
 		CFLAGS="$CFLAGS -D__SUNOS"
@@ -43,7 +45,7 @@ case "$host" in
 	*-cygwin*)
 		CFLAGS="$CFLAGS -D__CYGWIN -I /usr/include/ncurses -I /usr/lib/WpdPack/Include -I /usr/include/SctpDrv"
 		CPPFLAGS="$CPPFLAGS -D__CYGWIN -I /usr/include/ncurses -I /usr/lib/WpdPack/Include -I /usr/include/SctpDrv"
-                LDFLAGS="$LDFLAGS -L /usr/lib/WpdPack/Lib -L /usr/lib/SctpDrv"
+        LDFLAGS="$LDFLAGS -L /usr/lib/WpdPack/Lib -L /usr/lib/SctpDrv"
 		;;
 	*-tru64*)
 		CFLAGS="$CFLAGS -D__OSF1"
@@ -135,8 +137,37 @@ if test "$pcap" = 'yes'; then
 fi
 # For Makefile.am
 AM_CONDITIONAL(HAVE_PCAP, test "$pcap" = "yes")
-AM_CONDITIONAL(HAVE_UNITTEST, test "$unittest" = "yes")
 
+AM_CONDITIONAL(HAVE_RTP, test "$rtp" = "yes")
+
+# Conditional build with pcap
+if test "$gsl" = 'yes'; then
+	AC_CHECK_HEADERS([gsl/gsl_randist.h],,[AC_MSG_ERROR([<gsl/gsl_randist.h> header missing])])
+	AC_CHECK_HEADERS([gsl/gsl_rng.h],,[AC_MSG_ERROR([<gsl/gsl_rng.h> header missing])])
+	AC_CHECK_HEADERS([gsl/gsl_cdf.h],,[AC_MSG_ERROR([<gsl/gsl_cdf.h> header missing])])
+	AC_CHECK_LIB([m],[cos])
+	AC_CHECK_LIB([gslcblas], [cblas_dgemm])
+	AC_CHECK_LIB([gsl], [gsl_rng_alloc],
+		     [
+		      GSL_CFLAGS=`pkg-config gsl --cflags`
+		      GSL_CXXFLAGS=`pkg-config gsl --cflags`
+		      GSL_LIBS=`pkg-config gsl --libs`
+		      AC_SUBST([GSL_CFLAGS])
+		      AC_SUBST([GSL_CXXFLAGS])
+		      AC_SUBST([GSL_LIBS])
+		      ]
+		     ,[AC_MSG_ERROR([gsl library missing])])
+fi
+# For Makefile.am
+AM_CONDITIONAL(HAVE_GSL, test "$gsl" = "yes")
+
+AX_HAVE_EPOLL([AX_CONFIG_FEATURE_ENABLE(epoll)],
+    [AX_CONFIG_FEATURE_DISABLE(epoll)])
+AX_CONFIG_FEATURE([epoll], [This platform supports epoll(7)],
+    [HAVE_EPOLL], [This platform supports epoll(7).],
+    [epoll="yes"], [epoll="no"])
+
+AM_CONDITIONAL(HAVE_EPOLL, test "$epoll" = "yes")
 # ==================== checks for header files ==========================
 
 AC_FUNC_ALLOCA
